@@ -55,7 +55,7 @@ module ArStateMachine
   def do_state_change_before_callbacks
     rollback = self.class.run_before_transition_callbacks(self.state, self, old_state)
     if self.skipped_transition and self.respond_to?("#{self.skipped_transition}_at=")
-      self.send("#{self.skipped_transition}_at=", Time.zone.now)
+      self.send("#{self.skipped_transition}_at=", Time.now)
     end
     if self.respond_to?("#{self.state}_at=")
       overwrite = true
@@ -66,7 +66,7 @@ module ArStateMachine
         overwrite = !(self.class.send("overwrite_#{self.state}_at") == false)
       end
       if self.send("#{self.state}_at").blank? or overwrite
-        self.send("#{self.state}_at=", Time.zone.now)
+        self.send("#{self.state}_at=", Time.now)
       end
     end
     rollback
