@@ -5,6 +5,7 @@ class FakeActiveRecordModel
 
   include ActiveModel::Model
   extend ActiveModel::Callbacks
+  extend ARStateMachine::ActiveRecordExtensions
 
   attr_accessor :id
 

@@ -270,3 +270,4 @@ module ARStateMachine
     end
   end
 end
+ActiveRecord::Base.extend(ARStateMachine::ActiveRecordExtensions)
