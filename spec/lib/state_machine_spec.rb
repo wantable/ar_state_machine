@@ -126,7 +126,7 @@ describe "StateMachine" do
 end
 
 class StateMachineTestClass < FakeActiveRecordModel
-  extend ArStateMachine::ActiveRecordExtensions
+  extend ARStateMachine::ActiveRecordExtensions
   attr_accessor :state, :second_state_at, :overwrite_second_state_at
 
   def save

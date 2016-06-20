@@ -5,7 +5,7 @@ require 'ar_state_machine/version'
 
 Gem::Specification.new do |spec|
   spec.name          = "ar_state_machine"
-  spec.version       = ArStateMachine::VERSION
+  spec.version       = ARStateMachine::VERSION
   spec.authors       = ["Casey Juan Lopez", "Kevin Solkowski", "Austin Kahly"]
   spec.email         = ["casey@wantable.com"]
 

@@ -1,7 +1,7 @@
 require "ar_state_machine/version"
 require "active_record"
 
-module ArStateMachine
+module ARStateMachine
   extend ActiveSupport::Concern
 
   included do
@@ -94,7 +94,7 @@ module ArStateMachine
 
   module ActiveRecordExtensions
     def state_machine(states)
-      include ArStateMachine
+      include ARStateMachine
       self.setup(states)
     end
   end
