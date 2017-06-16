@@ -11,11 +11,11 @@ module ARStateMachine
     attr_accessor     :skipped_transition
 
     after_initialize  :state_machine_set_initial_state
-    before_update     :do_state_change_before_callbacks, 
+    before_update     :do_state_change_before_callbacks,
                       if: "state_changed? or (skipped_transition and skipped_transition.to_s == state.to_s)"
-    after_update      :do_state_change_do_after_callbacks, 
+    after_update      :do_state_change_do_after_callbacks,
                       if: "state_changed? or (skipped_transition and skipped_transition.to_s == state.to_s)"
-    before_update     :save_state_change, 
+    before_update     :save_state_change,
                       if: "state_changed? or (skipped_transition and skipped_transition.to_s == state.to_s)"
     validate          :state_machine_validation
     validates         :state,
@@ -32,11 +32,11 @@ module ARStateMachine
 
     # we usually only want to create the state change if the state actually changes but
     #   we also want to create it if it fails to transition from a state and stays there
-    #   example: a SubscriptionSeason in errored attempts to move to purchased, the order 
+    #   example: a SubscriptionSeason in errored attempts to move to purchased, the order
     #   fails to build and it goes back to errored. We want to log the attempt.
     #   we also want to do any callbacks
     old_state ||= skipped_transition if skipped_transition.to_s == state.to_s
-    
+
     old_state
   end
 
@@ -44,11 +44,15 @@ module ARStateMachine
     self.class.run_after_transition_callbacks(self.state, self, old_state) if self.state_changed?
   end
 
+  # Set up something like https://github.com/wantable/card_connect_gateway/blob/master/lib/card_connect_gateway/configuration.rb
+  # for the SYSTEM ID. shouldn't require USER at all. oops.
+  # Also add config to turn state changing on and off altogether.
+
   def save_state_change
     self.state_changes.create({
       previous_state: old_state,
       next_state:     self.state,
-      created_by_id:  self.last_edited_by_id || User::SYSTEM_ID
+      created_by_id:  self.last_edited_by_id || ArStateMachine.configuration.system_id
     })
   end
 
@@ -59,10 +63,10 @@ module ARStateMachine
     end
     if self.respond_to?("#{self.state}_at=")
       overwrite = true
-      if self.respond_to?("overwrite_#{self.state}_at") 
+      if self.respond_to?("overwrite_#{self.state}_at")
          # could be nil, want to assume we overwrite if it isn't exactly false
         overwrite = !(self.send("overwrite_#{self.state}_at") == false)
-      elsif self.class.respond_to?("overwrite_#{self.state}_at") 
+      elsif self.class.respond_to?("overwrite_#{self.state}_at")
         overwrite = !(self.class.send("overwrite_#{self.state}_at") == false)
       end
       if self.send("#{self.state}_at").blank? or overwrite
@@ -126,17 +130,17 @@ module ARStateMachine
         ss = state.to_s
         sy = state.to_sym
 
-        define_method "has_been_made_#{ss}?" do 
+        define_method "has_been_made_#{ss}?" do
           if self.respond_to?("#{ss}_at")
             self.send("#{ss}_at").present?
           else
             raise NotImplementedError, "Must add column #{ss}_at to the #{self.class.name.tableize} to use has_been_made_#{ss}?"
           end
         end
-        define_method "has_not_been_made_#{ss}?" do 
+        define_method "has_not_been_made_#{ss}?" do
           !self.send("has_been_made_#{ss}?")
         end
-        define_method "is_#{ss}?" do 
+        define_method "is_#{ss}?" do
           self.state.to_s == ss
         end
         define_method "make_#{ss}" do |last_edited_by_override = nil|
@@ -149,7 +153,7 @@ module ARStateMachine
           # check that the state actually changed in case AR callback chain/transactions are ignored and it gets reverted
           self.save and (self.send("is_#{ss}?") || self.skipped_transition.to_s == ss)
         end
-        define_method "is_not_#{ss}?" do 
+        define_method "is_not_#{ss}?" do
           !self.send("is_#{ss}?")
         end
         define_method "make_#{ss}!" do |last_edited_by_override = nil|
@@ -173,20 +177,20 @@ module ARStateMachine
               ability = Ability.new(user)
             end
             allow_transition?(self.class.states, self.state, ss) and (ability.blank? or ability.can?(:change_state, self))
-          end 
+          end
         end
 
-        self.class.send :define_method, ss do 
-          where(state: ss)  
+        self.class.send :define_method, ss do
+          where(state: ss)
         end
 
-        self.class.send :define_method, "not_#{ss}" do 
+        self.class.send :define_method, "not_#{ss}" do
           where.not(state: ss)
         end
       end
     end
 
-    # this sets all the state names as a constant on the class so we can do things like Product::ACTIVE 
+    # this sets all the state names as a constant on the class so we can do things like Product::ACTIVE
     # instead of having string everywhere
     def const_missing(name)
       state_name = name.downcase
@@ -238,11 +242,11 @@ module ARStateMachine
         end
 
         if model.send(callback[:method], *args) == false
-          
+
           # cancel others if any returned false
 
           if model.state == to # revert the state if AR won't and it hasn't been changed already
-            model.state = from 
+            model.state = from
             if model.respond_to?("#{to}_at=")
               model.send("#{to}_at=", nil)
             end
@@ -255,7 +259,7 @@ module ARStateMachine
             return false
           end
         end
-      end 
+      end
       true
     end
 

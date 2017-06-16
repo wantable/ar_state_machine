@@ -16,12 +16,25 @@ Or install it yourself as:
 
     $ gem install ar_state_machine
 
+## Setup
+
+config/initializers/ar_state_machine.rb
+
+```ruby
+
+  ArStateMachine.configure do |config|
+    config.system_id = [system_id]
+    config.should_change_state = true
+  end
+
+```
+
 ## Usage
 
 Simply define the state machine at the top of your model in the format below:
 ```ruby
   self.state_machine({
-    first_state: [:second_state, :third_state],  
+    first_state: [:second_state, :third_state],
     :second_state: :third_state,
     third_state: []
   })
