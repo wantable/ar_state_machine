@@ -53,10 +53,6 @@ module ARStateMachine
     self.class.run_after_transition_callbacks(self.state, self, old_state) if self.state_changed?
   end
 
-  # Set up something like https://github.com/wantable/card_connect_gateway/blob/master/lib/card_connect_gateway/configuration.rb
-  # for the SYSTEM ID. shouldn't require USER at all. oops.
-  # Also add config to turn state changing on and off altogether.
-
   def save_state_change
     return unless ArStateMachine.configuration.should_log_state_change
     self.state_changes.create({
