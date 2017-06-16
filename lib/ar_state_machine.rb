@@ -1,4 +1,5 @@
 require "ar_state_machine/version"
+require "ar_state_machine/configuration"
 require "active_record"
 
 module ARStateMachine
@@ -25,6 +26,14 @@ module ARStateMachine
                       dependent: :delete_all
   end
 
+  def self.configuration
+    @configuration ||= Configuration.new
+  end
+
+  def self.configure
+    yield(configuration) if block_given?
+  end
+
   private
 
   def old_state
@@ -49,6 +58,7 @@ module ARStateMachine
   # Also add config to turn state changing on and off altogether.
 
   def save_state_change
+    return unless ArStateMachine.configuration.should_log_state_change
     self.state_changes.create({
       previous_state: old_state,
       next_state:     self.state,
