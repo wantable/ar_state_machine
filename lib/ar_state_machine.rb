@@ -17,7 +17,7 @@ module ARStateMachine
     after_update      :do_state_change_do_after_callbacks,
                       if: "state_changed? or (skipped_transition and skipped_transition.to_s == state.to_s)"
     before_update     :save_state_change,
-                      if: "state_changed? or (skipped_transition and skipped_transition.to_s == state.to_s)"
+                      if: "ARStateMachine.configuration.should_log_state_change and (state_changed? or (skipped_transition and skipped_transition.to_s == state.to_s))"
     validate          :state_machine_validation
     validates         :state,
                       presence: true
@@ -54,11 +54,10 @@ module ARStateMachine
   end
 
   def save_state_change
-    return unless ArStateMachine.configuration.should_log_state_change
     self.state_changes.create({
       previous_state: old_state,
       next_state:     self.state,
-      created_by_id:  self.last_edited_by_id || ArStateMachine.configuration.system_id
+      created_by_id:  self.last_edited_by_id || ARStateMachine.configuration.system_id
     })
   end
 

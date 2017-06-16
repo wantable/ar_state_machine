@@ -22,7 +22,7 @@ config/initializers/ar_state_machine.rb
 
 ```ruby
 
-  ArStateMachine.configure do |config|
+  ARStateMachine.configure do |config|
     config.system_id = [system_id]
     config.should_log_state_change = true
   end
