@@ -14,7 +14,7 @@ describe "StateMachine" do
     expect(test.can_make_first_state?).to be false
     expect(test.can_make_second_state?).to be true
     expect(test.can_make_third_state?).to be true
-    
+
     expect(test.make_second_state).to be true
 
     expect(test.is_first_state?).to be false
@@ -24,7 +24,7 @@ describe "StateMachine" do
     expect(test.can_make_first_state?).to be false
     expect(test.can_make_second_state?).to be false
     expect(test.can_make_third_state?).to be true
-    
+
     expect(test.make_third_state).to be true
 
     expect(test.is_first_state?).to be false
@@ -55,6 +55,11 @@ describe "StateMachine" do
     expect(test.callbacks_happened[:second_state].count).to eq(2)
     expect(test.callbacks_happened[:second_state][:before][:first_state]).to eq(2)
     expect(test.callbacks_happened[:second_state][:after][:first_state]).to eq(1)
+
+
+    expect(test.make_third_state).to be true
+    expect(test.callbacks_happened[:third_state].count).to eq(1)
+    expect(test.callbacks_happened[:third_state][:after_commit][:second_state]).to eq(1)
   end
 
   it "test state machine callbacks don't fire if state didn't change" do
@@ -120,9 +125,7 @@ describe "StateMachine" do
 
     expect(test.make_second_state).to be true
     expect(test.second_state_at).to eq(was)
-
   end
-
 end
 
 class StateMachineTestClass < FakeActiveRecordModel
@@ -163,7 +166,7 @@ class StateMachineTestClass < FakeActiveRecordModel
   def changed_attributes
     if state_changed?
       {'state' => @initial_state}
-    else 
+    else
       {}
     end
   end
@@ -172,7 +175,7 @@ class StateMachineTestClass < FakeActiveRecordModel
 
   ## HERE begins the actual state machine implementation
   self.state_machine({
-    first_state: [:second_state, :third_state],  
+    first_state: [:second_state, :third_state],
     second_state: :third_state,
     third_state: :fourth_state,
     fourth_state: []
@@ -183,7 +186,11 @@ class StateMachineTestClass < FakeActiveRecordModel
   before_transition_to([:second_state]) do |from, to|
     self.append_callback_happened(:second_state, from.to_sym, :before)
   end
-  after_transition_to :second_state, :another_second_state_callback 
+  after_transition_to :second_state, :another_second_state_callback
+
+  after_commit_transition_to :third_state do |from, to|
+    self.append_callback_happened(:third_state, from.to_sym, :after_commit)
+  end
 
   def another_second_state_callback(from)
     self.append_callback_happened(:second_state, from.to_sym, :after)
@@ -203,7 +210,7 @@ class StateMachineTestClass < FakeActiveRecordModel
     @callbacks_happened ||= {}
     @callbacks_happened[to]||={}
     @callbacks_happened[to][kind]||={}
-    @callbacks_happened[to][kind][from] ||= 0 
-    @callbacks_happened[to][kind][from] += 1 
+    @callbacks_happened[to][kind][from] ||= 0
+    @callbacks_happened[to][kind][from] += 1
   end
 end

@@ -8,17 +8,24 @@ module ARStateMachine
   included do
     cattr_accessor    :states
 
-    attr_accessor     :last_edited_by_id
-    attr_accessor     :skipped_transition
+    attr_accessor     :last_edited_by_id, :skipped_transition
 
     after_initialize  :state_machine_set_initial_state
     before_update     :do_state_change_before_callbacks,
                       if: "state_changed? or (skipped_transition and skipped_transition.to_s == state.to_s)"
+
     after_update      :do_state_change_do_after_callbacks,
                       if: "state_changed? or (skipped_transition and skipped_transition.to_s == state.to_s)"
+
+    after_commit      :do_state_change_do_after_commit_callbacks,
+                      if: "state_changed? or (skipped_transition and skipped_transition.to_s == state.to_s)",
+                      on: :update
+
     before_update     :save_state_change,
                       if: "ARStateMachine.configuration.should_log_state_change and (state_changed? or (skipped_transition and skipped_transition.to_s == state.to_s))"
+
     validate          :state_machine_validation
+
     validates         :state,
                       presence: true
 
@@ -51,6 +58,10 @@ module ARStateMachine
 
   def do_state_change_do_after_callbacks
     self.class.run_after_transition_callbacks(self.state, self, old_state) if self.state_changed?
+  end
+
+  def do_state_change_do_after_commit_callbacks
+    self.class.run_after_commit_transition_callbacks(self.state, self, old_state) if self.state_changed?
   end
 
   def save_state_change
@@ -112,6 +123,7 @@ module ARStateMachine
     def setup(states)
       @before_transitions ||= {}
       @after_transitions ||= {}
+      @after_commit_transitions ||= {}
 
       states_sym = states.keys.map(&:to_sym)
 
@@ -210,7 +222,7 @@ module ARStateMachine
       to.each do |to_|
         @before_transitions[to_.to_sym] ||= []
         if !method.present?
-          method = "_before_transitions_#{to_.to_sym}_#{@before_transitions[to_.to_sym].length}"
+          method = "_before_transition_to_#{to_.to_sym}_#{@before_transitions[to_.to_sym].length}"
           define_method method, block
         end
 
@@ -235,7 +247,23 @@ module ARStateMachine
       true
     end
 
-    def process_callbacks(to, model, from, callbacks)
+    def after_commit_transition_to(to, method=nil, &block)
+      if to.class != Array
+        to = [to]
+      end
+      to.each do |to_|
+        @after_commit_transitions[to_.to_sym] ||= []
+        if !method.present?
+          method = "_after_commit_to_#{to_.to_sym}_#{@after_commit_transitions[to_.to_sym].length}"
+          define_method method, block
+        end
+
+        @after_commit_transitions[to_.to_sym].push({method: method})
+      end
+      true
+    end
+
+    def process_callbacks(to, model, from, callbacks, ignore_response=false)
       callbacks.each do |callback|
         args = case model.method(callback[:method]).parameters.count
         when 1
@@ -246,8 +274,7 @@ module ARStateMachine
           []
         end
 
-        if model.send(callback[:method], *args) == false
-
+        if model.send(callback[:method], *args) == false and !ignore_response
           # cancel others if any returned false
 
           if model.state == to # revert the state if AR won't and it hasn't been changed already
@@ -266,6 +293,11 @@ module ARStateMachine
         end
       end
       true
+    end
+
+    def run_after_commit_transition_callbacks(to, model, from)
+      callbacks = @after_commit_transitions[to.to_sym]
+      process_callbacks(to, model, from, callbacks, true) if callbacks
     end
 
     def run_before_transition_callbacks(to, model, from)
