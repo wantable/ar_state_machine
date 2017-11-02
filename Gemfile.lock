@@ -51,7 +51,7 @@ PLATFORMS
 
 DEPENDENCIES
   ar_state_machine!
-  bundler (~> 1.12)
+  bundler (~> 1.3)
   rake (~> 10.0)
   rspec
 
