@@ -52,6 +52,11 @@ These use the [active record callback chain](http://guides.rubyonrails.org/v4.2/
   - `after_transition_to` runs on `after_update`
   - `after_commit_transition_to` runs on `after_commit, on: :update`
 
+Here are some rules of thumb to follow:
+
+  - `before_transition` - only if you need to be able to halt the transaction or you need to set a value on the model being transitioned. You can also use this to halt AR state machine callbacks but still allow the transaction to save (payment failure is a good example, we still want to save the failure).
+  - `after_transition` - only if you need to be able to halt the transaction - you'll need to do it with an exception as returning false does nothing here
+  - `after_commit_transition` - most of the time, background job queue, cache clearing and similar tasks, updating child records, etc
 
 ```ruby
   before_transition_to :second_state do |from, to|
