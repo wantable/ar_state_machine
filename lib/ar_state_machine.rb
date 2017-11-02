@@ -18,7 +18,6 @@ module ARStateMachine
                       if: "state_changed? or (skipped_transition and skipped_transition.to_s == state.to_s)"
 
     after_commit      :do_state_change_do_after_commit_callbacks,
-                      if: "state_changed? or (skipped_transition and skipped_transition.to_s == state.to_s)",
                       on: :update
 
     before_update     :save_state_change,
@@ -57,11 +56,15 @@ module ARStateMachine
   end
 
   def do_state_change_do_after_callbacks
-    self.class.run_after_transition_callbacks(self.state, self, old_state) if self.state_changed?
+    self.class.run_after_transition_callbacks(self.state, self, old_state)
+    @state_changed_temp = old_state
   end
 
   def do_state_change_do_after_commit_callbacks
-    self.class.run_after_commit_transition_callbacks(self.state, self, old_state) if self.state_changed?
+    if @state_changed_temp # we have to use an instance variable because the change was already committed and changed_attributes is empty
+      self.class.run_after_commit_transition_callbacks(self.state, self, @state_changed_temp)
+      @state_changed_temp = nil
+    end
   end
 
   def save_state_change
