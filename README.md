@@ -43,8 +43,20 @@ Simply define the state machine at the top of your model in the format below:
 
 This example indicates that first_state can transition to second_state or third_state but second_state can only transition to third_state which is then a dead end.
 
-Then add any before or after callbacks to fire on state changes.
-If a before_transition_to returns false any further ones will stop and the model will not save
+Then add any before, after and after_commit callbacks to fire on state changes.
+
+These use the [active record callback chain](http://guides.rubyonrails.org/v4.2/active_record_callbacks.html):
+
+  - `before_transition_to` runs on `before_update`
+    - returning false or raising an exception in here will halt the transaction stop running transitions
+  - `after_transition_to` runs on `after_update`
+  - `after_commit_transition_to` runs on `after_commit, on: :update`
+
+Here are some rules of thumb to follow:
+
+  - `before_transition` - only if you need to be able to halt the transaction or you need to set a value on the model being transitioned. You can also use this to halt AR state machine callbacks but still allow the transaction to save (payment failure is a good example, we still want to save the failure).
+  - `after_transition` - only if you need to be able to halt the transaction - you'll need to do it with an exception as returning false does nothing here
+  - `after_commit_transition` - most of the time, background job queue, cache clearing and similar tasks, updating child records, etc
 
 ```ruby
   before_transition_to :second_state do |from, to|
@@ -55,6 +67,9 @@ If a before_transition_to returns false any further ones will stop and the model
   end
   after_transition_to :second_state do |from, to|
     puts "doing an after transition #{self.state}"
+  end
+  after_commit_transition_to :second_state do |from, to|
+    puts "doing an after commit transition #{self.state}"
   end
 ```
 
