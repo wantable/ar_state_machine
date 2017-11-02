@@ -302,12 +302,12 @@ module ARStateMachine
 
     def run_before_transition_callbacks(to, model, from)
       callbacks = @before_transitions[to.to_sym]
-      return process_callbacks(to, model, from, callbacks) if callbacks
+      process_callbacks(to, model, from, callbacks) if callbacks
     end
 
     def run_after_transition_callbacks(to, model, from)
       callbacks = @after_transitions[to.to_sym]
-      return process_callbacks(to, model, from, callbacks) if callbacks
+      process_callbacks(to, model, from, callbacks) if callbacks
     end
   end
 end
