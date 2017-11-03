@@ -6,7 +6,7 @@ module ARStateMachine
   extend ActiveSupport::Concern
 
   included do
-    cattr_accessor    :states
+    cattr_accessor    :states, :after_callbacks
 
     attr_accessor     :last_edited_by_id, :skipped_transition
 
@@ -17,8 +17,7 @@ module ARStateMachine
     after_update      :do_state_change_do_after_callbacks,
                       if: "state_changed? or (skipped_transition and skipped_transition.to_s == state.to_s)"
 
-    after_commit      :do_state_change_do_after_commit_callbacks,
-                      on: :update
+    after_commit      :do_state_change_do_after_commit_callbacks
 
     before_update     :save_state_change,
                       if: "ARStateMachine.configuration.should_log_state_change and (state_changed? or (skipped_transition and skipped_transition.to_s == state.to_s))"
@@ -56,14 +55,22 @@ module ARStateMachine
   end
 
   def do_state_change_do_after_callbacks
-    self.class.run_after_transition_callbacks(self.state, self, old_state)
-    @state_changed_temp = old_state
+    # here we store a class variable for what happened so that we can use it in after commit
+    # we can't simply use an instance variable because its possible the model in question
+    # has more than one instance in memory and then the first instance is the only one that
+    # would have the after_commit fire, we want to fire the after commit for the most recent
+    # state change in the transaction not necessarily the one related to the first created
+    # instance of a particular model
+    # https://github.com/rails/rails/issues/19797
+    self.class.after_callbacks[id] = [old_state, state]
+    self.class.run_after_transition_callbacks(state, self, old_state)
   end
 
   def do_state_change_do_after_commit_callbacks
-    if @state_changed_temp # we have to use an instance variable because the change was already committed and changed_attributes is empty
-      self.class.run_after_commit_transition_callbacks(self.state, self, @state_changed_temp)
-      @state_changed_temp = nil
+    previous_state, new_state = self.class.after_callbacks[id]
+    if previous_state and new_state # we have to use an instance variable because the change was already committed and changed_attributes is empty
+      self.class.after_callbacks.delete(id)
+      self.class.run_after_commit_transition_callbacks(new_state, self, previous_state)
     end
   end
 
@@ -129,6 +136,8 @@ module ARStateMachine
       @after_commit_transitions ||= {}
 
       states_sym = states.keys.map(&:to_sym)
+
+      self.after_callbacks ||= {}
 
       # normalize the format of states
       self.states = states.inject({}) do |h, (state, can)|
