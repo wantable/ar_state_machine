@@ -23,9 +23,9 @@ class FakeActiveRecordModel
   # Just check validity, and if so, trigger callbacks.
   def save
     if valid?
-      run_callbacks(:update) { true }
-      id ||= rand(1000)
-      run_callbacks(:commit) { true }
+      run_callbacks(:update) { self.id ||= rand(1000) }
+
+      run_callbacks(:commit) { true}
       true
     else
       false
@@ -34,7 +34,7 @@ class FakeActiveRecordModel
 
   def save!
     if valid?
-      run_callbacks(:update) { true }
+      run_callbacks(:update) { self.id ||= rand(1000) }
       id ||= rand(1000)
       run_callbacks(:commit) { true }
       true
