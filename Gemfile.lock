@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    ar_state_machine (0.1.1)
+    ar_state_machine (0.1.2)
       activerecord (~> 4.2)
       timecop
 
@@ -24,9 +24,9 @@ GEM
     builder (3.2.3)
     concurrent-ruby (1.0.5)
     diff-lcs (1.2.5)
-    i18n (0.9.0)
+    i18n (0.9.5)
       concurrent-ruby (~> 1.0)
-    minitest (5.10.3)
+    minitest (5.11.3)
     rake (10.5.0)
     rspec (3.4.0)
       rspec-core (~> 3.4.0)
@@ -43,7 +43,7 @@ GEM
     rspec-support (3.4.1)
     thread_safe (0.3.6)
     timecop (0.9.1)
-    tzinfo (1.2.4)
+    tzinfo (1.2.5)
       thread_safe (~> 0.1)
 
 PLATFORMS
