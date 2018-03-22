@@ -131,9 +131,13 @@ module ARStateMachine
 
   module ClassMethods
     def setup(states)
-      @before_transitions ||= {}
-      @after_transitions ||= {}
-      @after_commit_transitions ||= {}
+      @before_transitions_to ||= {}
+      @after_transitions_to ||= {}
+      @after_commit_transitions_to ||= {}
+      @before_transitions_from ||= {}
+      @after_transitions_from ||= {}
+      @after_commit_transitions_from ||= {}
+      @all_callbacks ||= []
 
       states_sym = states.keys.map(&:to_sym)
 
@@ -232,13 +236,15 @@ module ARStateMachine
         to = [to]
       end
       to.each do |to_|
-        @before_transitions[to_.to_sym] ||= []
+        to_sym_ = to_.to_sym
+        @before_transitions_to[to_sym_] ||= []
         if !method.present?
-          method = "_before_transition_to_#{to_.to_sym}_#{@before_transitions[to_.to_sym].length}"
+          method = "_before_transition_to_#{to_}_#{@before_transitions_to[to_sym_].length}"
+          @all_callbacks.push method
           define_method method, block
         end
 
-        @before_transitions[to_.to_sym].push({method: method, rollback_on_failure: rollback_on_failure})
+        @before_transitions_to[to_sym_].push({method: method, rollback_on_failure: rollback_on_failure})
       end
       true
     end
@@ -248,13 +254,15 @@ module ARStateMachine
         to = [to]
       end
       to.each do |to_|
-        @after_transitions[to_.to_sym] ||= []
+        to_sym_ = to_.to_sym
+        @after_transitions_to[to_sym_] ||= []
         if !method.present?
-          method = "_after_transition_to_#{to_.to_sym}_#{@after_transitions[to_.to_sym].length}"
+          method = "_after_transition_to_#{to_}_#{@after_transitions_to[to_sym_].length}"
+          @all_callbacks.push method
           define_method method, block
         end
 
-        @after_transitions[to_.to_sym].push({method: method}) # AR doesn't do rollbacks for after_* callbacks
+        @after_transitions_to[to_.to_sym].push({method: method}) # AR doesn't do rollbacks for after_* callbacks
       end
       true
     end
@@ -264,18 +272,79 @@ module ARStateMachine
         to = [to]
       end
       to.each do |to_|
-        @after_commit_transitions[to_.to_sym] ||= []
+        to_sym_ = to_.to_sym
+        @after_commit_transitions_to[to_sym_] ||= []
         if !method.present?
-          method = "_after_commit_to_#{to_.to_sym}_#{@after_commit_transitions[to_.to_sym].length}"
+          method = "_after_commit_to_#{to_}_#{@after_commit_transitions_to[to_sym_].length}"
+          @all_callbacks.push method
           define_method method, block
         end
 
-        @after_commit_transitions[to_.to_sym].push({method: method})
+        @after_commit_transitions_to[to_sym_].push({method: method})
+      end
+      true
+    end
+
+    def before_transition_from(from, method=nil, rollback_on_failure=true, &block)
+      if from.class != Array
+        from = [from]
+      end
+      from.each do |from_|
+        from_sym = from_.to_sym
+        @before_transitions_from[from_sym] ||= []
+        if !method.present?
+          method = "_before_transition_from_#{from_}_#{@before_transitions_from[from_sym].length}"
+          @all_callbacks.push method
+          define_method method, block
+        end
+
+        @before_transitions_from[from_sym].push({method: method, rollback_on_failure: rollback_on_failure})
+      end
+      true
+    end
+
+    def after_transition_from(from, method=nil, &block)
+      if from.class != Array
+        from = [from]
+      end
+      from.each do |from_|
+        from_sym = from_.to_sym
+        @after_transitions_from[from_sym] ||= []
+        if !method.present?
+          method = "_after_transition_from_#{from_}_#{@after_transitions_from[from_sym].length}"
+          @all_callbacks.push method
+          define_method method, block
+        end
+
+        @after_transitions_from[from_sym].push({method: method}) # AR doesn't do rollbacks for after_* callbacks
+      end
+      true
+    end
+
+    def after_commit_transition_from(from, method=nil, &block)
+      if from.class != Array
+        from = [from]
+      end
+      from.each do |from_|
+        from_sym = from_.to_sym
+        @after_commit_transitions_from[from_sym] ||= []
+        if !method.present?
+          method = "_after_commit_from_#{from_}_#{@after_commit_transitions_from[from_sym].length}"
+          @all_callbacks.push method
+          define_method method, block
+        end
+
+        @after_commit_transitions_from[from_sym].push({method: method})
       end
       true
     end
 
     def process_callbacks(to, model, from, callbacks, ignore_response=false)
+      # make sure these are all in the right order if there are to and from callbacks
+      callbacks.sort_by! do |callback|
+        @all_callbacks.index(callback)
+      end
+
       callbacks.each do |callback|
         args = case model.method(callback[:method]).parameters.count
         when 1
@@ -308,18 +377,21 @@ module ARStateMachine
     end
 
     def run_after_commit_transition_callbacks(to, model, from)
-      callbacks = @after_commit_transitions[to.to_sym]
-      process_callbacks(to, model, from, callbacks, true) if callbacks
+      callbacks = @after_commit_transitions_to[to.to_sym]||[]
+      callbacks += @after_commit_transitions_from[from.to_sym]||[]
+      process_callbacks(to, model, from, callbacks, true) if callbacks.length > 0
     end
 
     def run_before_transition_callbacks(to, model, from)
-      callbacks = @before_transitions[to.to_sym]
-      process_callbacks(to, model, from, callbacks) if callbacks
+      callbacks = @before_transitions_to[to.to_sym]||[]
+      callbacks += @before_transitions_from[from.to_sym]||[]
+      process_callbacks(to, model, from, callbacks) if callbacks.length > 0
     end
 
     def run_after_transition_callbacks(to, model, from)
-      callbacks = @after_transitions[to.to_sym]
-      process_callbacks(to, model, from, callbacks) if callbacks
+      callbacks = @after_transitions_to[to.to_sym]||[]
+      callbacks += @after_transitions_from[from.to_sym]||[]
+      process_callbacks(to, model, from, callbacks) if callbacks.length > 0
     end
   end
 end

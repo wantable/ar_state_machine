@@ -47,10 +47,14 @@ Then add any before, after and after_commit callbacks to fire on state changes.
 
 These use the [active record callback chain](http://guides.rubyonrails.org/v4.2/active_record_callbacks.html):
 
-  - `before_transition_to` runs on `before_update`
+**Note:** if you have multiple of the same transition type they execute in the order they are put in your model file.
+
+  - `before_transition_to`, `before_transition_from` run on `before_update`
     - returning false or raising an exception in here will halt the transaction stop running transitions
-  - `after_transition_to` runs on `after_update`
-  - `after_commit_transition_to` runs on `after_commit, on: :update`
+  - `after_transition_to`, `after_transition_from` run on `after_update`
+  - `after_commit_transition_to`, `after_commit_transition_from` run on `after_commit, on: :update`
+
+
 
 Here are some rules of thumb to follow:
 
@@ -69,6 +73,15 @@ Here are some rules of thumb to follow:
   end
   after_commit_transition_to :second_state do |from, to|
     puts "doing an after commit transition #{self.state}"
+  end
+  before_transition_from :second_state do |from, to|
+    puts "doing before transition from #{self.state}"
+  end
+  after_transition_from :second_state do |from, to|
+    puts "doing an after transition from #{self.state}"
+  end
+  after_commit_transition_from :second_state do |from, to|
+    puts "doing an after commit transition from #{self.state}"
   end
 ```
 
