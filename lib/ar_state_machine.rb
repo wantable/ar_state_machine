@@ -180,9 +180,8 @@ module ARStateMachine
           self.state = ss
           self.last_edited_by_id = last_edited_by_override if last_edited_by_override
 
-          if self.respond_to?("#{ss}_by_id=") and last_edited_by_id
-            self.send("#{ss}_by_id=", last_edited_by_id)
-          end
+          set_state_by_id(self.last_edited_by_id)
+
           # check that the state actually changed in case AR callback chain/transactions are ignored and it gets reverted
           self.save and (self.send("is_#{ss}?") || self.skipped_transition.to_s == ss)
         end
@@ -192,9 +191,9 @@ module ARStateMachine
         define_method "make_#{ss}!" do |last_edited_by_override = nil|
           self.last_edited_by_id = last_edited_by_override if last_edited_by_override
           self.state = ss
-          if self.respond_to?("#{ss}_by_id=") and last_edited_by_id
-            self.send("#{ss}_by_id=", last_edited_by_id)
-          end
+
+          set_state_by_id(self.last_edited_by_id)
+
           self.save!
           if self.send("is_#{ss}?") or self.skipped_transition.to_s == ss
             true
@@ -219,6 +218,20 @@ module ARStateMachine
 
         self.class.send :define_method, "not_#{ss}" do
           where.not(state: ss)
+        end
+      end
+    end
+
+    def set_state_by_id(last_edited_by_id)
+      if self.respond_to?("#{self.state}_by_id")
+        overwrite = true
+        if self.respond_to?("overwrite_#{self.state}_by_id")
+          overwrite = !(self.send("overwrite_#{self.state}_by_id") == false)
+        elsif self.class.respond_to?("overwrite_#{self.state}_by_id")
+          overwrite = !(self.class.send("overwrite_#{self.state}_by_id") == false)
+        end
+        if self.send("#{self.state}_by_id").blank? or overwrite
+          self.send("#{self.state}_by_id", self.last_edited_by_id)
         end
       end
     end
