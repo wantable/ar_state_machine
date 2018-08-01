@@ -22,9 +22,6 @@ module ARStateMachine
     before_update     :save_state_change,
                       if: "ARStateMachine.configuration.should_log_state_change and (state_changed? or (skipped_transition and skipped_transition.to_s == state.to_s))"
 
-    after_update      :set_state_by_id,
-                      if: "state_changed? or (skipped_transition and skipped_transition.to_s == state.to_s)"
-
     validate          :state_machine_validation
 
     validates         :state,
