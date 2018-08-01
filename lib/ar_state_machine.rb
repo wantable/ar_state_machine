@@ -194,7 +194,7 @@ module ARStateMachine
         define_method "make_#{ss}" do |last_edited_by_override = nil|
           self.state = ss
           self.last_edited_by_id = last_edited_by_override if last_edited_by_override
-          self.set_state_by_id()
+          self.set_state_by_id
 
           # check that the state actually changed in case AR callback chain/transactions are ignored and it gets reverted
           self.save and (self.send("is_#{ss}?") || self.skipped_transition.to_s == ss)
@@ -205,7 +205,7 @@ module ARStateMachine
         define_method "make_#{ss}!" do |last_edited_by_override = nil|
           self.last_edited_by_id = last_edited_by_override if last_edited_by_override
           self.state = ss
-          self.set_state_by_id()
+          self.set_state_by_id
 
           self.save!
           if self.send("is_#{ss}?") or self.skipped_transition.to_s == ss
