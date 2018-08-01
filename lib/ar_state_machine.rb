@@ -22,6 +22,9 @@ module ARStateMachine
     before_update     :save_state_change,
                       if: "ARStateMachine.configuration.should_log_state_change and (state_changed? or (skipped_transition and skipped_transition.to_s == state.to_s))"
 
+    after_update      :set_state_by_id,
+                      if: "state_changed? or (skipped_transition and skipped_transition.to_s == state.to_s)"
+
     validate          :state_machine_validation
 
     validates         :state,
@@ -180,8 +183,6 @@ module ARStateMachine
           self.state = ss
           self.last_edited_by_id = last_edited_by_override if last_edited_by_override
 
-          set_state_by_id(self.last_edited_by_id)
-
           # check that the state actually changed in case AR callback chain/transactions are ignored and it gets reverted
           self.save and (self.send("is_#{ss}?") || self.skipped_transition.to_s == ss)
         end
@@ -191,8 +192,6 @@ module ARStateMachine
         define_method "make_#{ss}!" do |last_edited_by_override = nil|
           self.last_edited_by_id = last_edited_by_override if last_edited_by_override
           self.state = ss
-
-          set_state_by_id(self.last_edited_by_id)
 
           self.save!
           if self.send("is_#{ss}?") or self.skipped_transition.to_s == ss
@@ -222,7 +221,7 @@ module ARStateMachine
       end
     end
 
-    def set_state_by_id(last_edited_by_id)
+    def set_state_by_id
       if self.respond_to?("#{self.state}_by_id")
         overwrite = true
         if self.respond_to?("overwrite_#{self.state}_by_id")
