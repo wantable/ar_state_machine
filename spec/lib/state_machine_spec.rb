@@ -127,7 +127,7 @@ describe "StateMachine" do
     expect(test.second_state_at).to eq(was)
   end
 
-  it "..test overwriting ids" do
+  it "test overwriting ids" do
     test = StateMachineTestClass.create
     expect(test.second_state_by_id).to be_nil
 
