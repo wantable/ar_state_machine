@@ -124,6 +124,19 @@ module ARStateMachine
     states[from.to_sym].include?(to.to_sym)
   end
 
+  def set_state_by_id
+    if self.respond_to?("#{self.state}_by_id")
+      overwrite = true
+      if self.respond_to?("overwrite_#{self.state}_by_id")
+        overwrite = !(self.send("overwrite_#{self.state}_by_id") == false)
+      elsif self.class.respond_to?("overwrite_#{self.state}_by_id")
+        overwrite = !(self.class.send("overwrite_#{self.state}_by_id") == false)
+      end
+      if self.send("#{self.state}_by_id").blank? or overwrite
+        self.send("#{self.state}_by_id", self.last_edited_by_id)
+      end
+    end
+  end
 
   module ActiveRecordExtensions
     def state_machine(states)
@@ -217,20 +230,6 @@ module ARStateMachine
 
         self.class.send :define_method, "not_#{ss}" do
           where.not(state: ss)
-        end
-      end
-    end
-
-    def set_state_by_id
-      if self.respond_to?("#{self.state}_by_id")
-        overwrite = true
-        if self.respond_to?("overwrite_#{self.state}_by_id")
-          overwrite = !(self.send("overwrite_#{self.state}_by_id") == false)
-        elsif self.class.respond_to?("overwrite_#{self.state}_by_id")
-          overwrite = !(self.class.send("overwrite_#{self.state}_by_id") == false)
-        end
-        if self.send("#{self.state}_by_id").blank? or overwrite
-          self.send("#{self.state}_by_id", self.last_edited_by_id)
         end
       end
     end
