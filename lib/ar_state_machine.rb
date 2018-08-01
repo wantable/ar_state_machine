@@ -121,6 +121,8 @@ module ARStateMachine
     states[from.to_sym].include?(to.to_sym)
   end
 
+  protected
+
   def set_state_by_id
     if self.respond_to?("#{self.state}_by_id")
       overwrite = true

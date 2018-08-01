@@ -126,10 +126,25 @@ describe "StateMachine" do
     expect(test.make_second_state).to be true
     expect(test.second_state_at).to eq(was)
   end
+
+  it "..test overwriting ids" do
+    test = StateMachineTestClass.create
+    expect(test.second_state_by_id).to be_nil
+
+    expect(test.make_second_state(2)).to be true
+
+    was = test.second_state_by_id
+    test.overwrite_second_state_by_id = false
+
+    test.state = StateMachineTestClass::FIRST_STATE
+    expect(test.reset).to eq(StateMachineTestClass::FIRST_STATE)
+    expect(test.make_second_state(5)).to be true
+    expect(test.second_state_by_id).to eq(was)
+  end
 end
 
 class StateMachineTestClass < FakeActiveRecordModel
-  attr_accessor :state, :second_state_at, :overwrite_second_state_at
+  attr_accessor :state, :second_state_at, :second_state_by_id, :overwrite_second_state_at, :overwrite_second_state_by_id
 
   def save
     super
