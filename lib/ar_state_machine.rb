@@ -132,7 +132,7 @@ module ARStateMachine
         overwrite = !(self.class.send("overwrite_#{self.state}_by_id") == false)
       end
       if self.send("#{self.state}_by_id").blank? or overwrite
-        self.send("#{self.state}_by_id=", self.last_edited_by_id)
+        self.send("#{self.state}_by_id=", self.last_edited_by_id) if self.last_edited_by_id.present?
       end
     end
   end
