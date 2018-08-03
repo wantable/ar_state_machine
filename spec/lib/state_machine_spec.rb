@@ -141,6 +141,16 @@ describe "StateMachine" do
     expect(test.make_second_state(5)).to be true
     expect(test.second_state_by_id).to eq(was)
   end
+
+  it "test setting value before hand then changing states perserves id" do
+    test = StateMachineTestClass.create
+    expect(test.second_state_by_id).to be_nil
+
+    test.second_state_by_id = 2
+    expect(test.make_second_state).to be true
+
+    expect(2).to eq(test.second_state_by_id)
+  end
 end
 
 class StateMachineTestClass < FakeActiveRecordModel
