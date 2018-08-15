@@ -83,10 +83,11 @@ module ARStateMachine
   end
 
   def do_state_change_before_callbacks
-    rollback = self.class.run_before_transition_callbacks(self.state, self, old_state)
+    return false if self.class.run_before_transition_callbacks(self.state, self, old_state) == false
     if self.skipped_transition and self.respond_to?("#{self.skipped_transition}_at=")
       self.send("#{self.skipped_transition}_at=", Time.now)
     end
+
     if self.respond_to?("#{self.state}_at=")
       overwrite = true
       if self.respond_to?("overwrite_#{self.state}_at")
@@ -95,11 +96,12 @@ module ARStateMachine
       elsif self.class.respond_to?("overwrite_#{self.state}_at")
         overwrite = !(self.class.send("overwrite_#{self.state}_at") == false)
       end
-      if self.send("#{self.state}_at").blank? or overwrite
+
+      if (self.send("#{self.state}_at").blank? or overwrite)
         self.send("#{self.state}_at=", Time.now)
       end
     end
-    rollback
+    true
   end
 
   def state_machine_validation

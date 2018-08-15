@@ -44,7 +44,21 @@ describe "StateMachine" do
     expect(test.second_state_at).not_to be_nil
 
     expect(test.has_been_made_second_state?).to be true
-    expect{ test.has_been_made_third_state? }.to raise_error(NotImplementedError)
+    expect{ test.has_been_made_fourth_state? }.to raise_error(NotImplementedError)
+  end
+
+  it "test does not overwrite previous state_at on transition fail" do
+    test = StateMachineTestClass.create
+    expect(test.make_third_state).to be true
+    expect(test.is_third_state?).to be true
+
+    was = test.third_state_at
+    Timecop.travel(Time.now + 1)
+
+    expect(test.can_make_fourth_state?).to be true
+    expect(test.make_fourth_state).to be false
+    expect(test.callbacks_happened[:fourth_state][:before][:third_state]).to eq(1)
+    expect(test.third_state_at).to eq(was)
   end
 
   it "test state machine callbacks" do
@@ -154,7 +168,7 @@ describe "StateMachine" do
 end
 
 class StateMachineTestClass < FakeActiveRecordModel
-  attr_accessor :state, :second_state_at, :second_state_by_id, :overwrite_second_state_at, :overwrite_second_state_by_id
+  attr_accessor :state, :second_state_at, :third_state_at, :second_state_by_id, :overwrite_second_state_at, :overwrite_second_state_by_id
 
   def save
     super
@@ -226,6 +240,7 @@ class StateMachineTestClass < FakeActiveRecordModel
   end
 
   before_transition_to(:fourth_state) do |from, to|
+    self.append_callback_happened(to.to_sym, from.to_sym, :before)
     self.errors[:state] << "Cannot transition to fourth_state because I said so."
     false
   end
