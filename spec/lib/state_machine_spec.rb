@@ -44,10 +44,10 @@ describe "StateMachine" do
     expect(test.second_state_at).not_to be_nil
 
     expect(test.has_been_made_second_state?).to be true
-    expect{ test.has_been_made_fourth_state? }.to raise_error(NotImplementedError)
+    expect{ test.has_been_made_fifth_state? }.to raise_error(NotImplementedError)
   end
 
-  it "test does not overwrite previous state_at on transition fail" do
+  it "test does not change state_at on transition fail" do
     test = StateMachineTestClass.create
     expect(test.make_third_state).to be true
     expect(test.is_third_state?).to be true
@@ -58,6 +58,8 @@ describe "StateMachine" do
     expect(test.can_make_fourth_state?).to be true
     expect(test.make_fourth_state).to be false
     expect(test.callbacks_happened[:fourth_state][:before][:third_state]).to eq(1)
+    expect(test.is_third_state?).to be true
+    expect(test.fourth_state_at).to be_nil
     expect(test.third_state_at).to eq(was)
   end
 
@@ -168,7 +170,7 @@ describe "StateMachine" do
 end
 
 class StateMachineTestClass < FakeActiveRecordModel
-  attr_accessor :state, :second_state_at, :third_state_at, :second_state_by_id, :overwrite_second_state_at, :overwrite_second_state_by_id
+  attr_accessor :state, :second_state_at, :third_state_at, :fourth_state_at, :second_state_by_id, :overwrite_second_state_at, :overwrite_second_state_by_id
 
   def save
     super
@@ -217,7 +219,8 @@ class StateMachineTestClass < FakeActiveRecordModel
     first_state: [:second_state, :third_state],
     second_state: :third_state,
     third_state: :fourth_state,
-    fourth_state: []
+    fourth_state: [],
+    fifth_state: []
   })
   before_transition_to(:second_state) do |from, to|
     self.append_callback_happened(to.to_sym, from.to_sym, :before)

@@ -1,8 +1,8 @@
 PATH
   remote: .
   specs:
-    ar_state_machine (0.2.1)
-      activerecord (>= 4.2)
+    ar_state_machine (0.3.0)
+      activerecord (>= 5.0)
       timecop
 
 GEM
@@ -20,7 +20,7 @@ GEM
       minitest (~> 5.1)
       tzinfo (~> 1.1)
     arel (9.0.0)
-    concurrent-ruby (1.1.5)
+    concurrent-ruby (1.1.6)
     diff-lcs (1.2.5)
     i18n (1.8.2)
       concurrent-ruby (~> 1.0)

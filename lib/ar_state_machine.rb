@@ -83,7 +83,8 @@ module ARStateMachine
   end
 
   def do_state_change_before_callbacks
-    return false if self.class.run_before_transition_callbacks(self.state, self, old_state) == false
+    self.class.run_before_transition_callbacks(self.state, self, old_state)
+
     if self.skipped_transition and self.respond_to?("#{self.skipped_transition}_at=")
       self.send("#{self.skipped_transition}_at=", Time.now)
     end
@@ -260,7 +261,6 @@ module ARStateMachine
 
         @before_transitions_to[to_sym_].push({method: method, rollback_on_failure: rollback_on_failure})
       end
-      true
     end
 
     def after_transition_to(to, method=nil, &block)
@@ -278,7 +278,6 @@ module ARStateMachine
 
         @after_transitions_to[to_.to_sym].push({method: method}) # AR doesn't do rollbacks for after_* callbacks
       end
-      true
     end
 
     def after_commit_transition_to(to, method=nil, &block)
@@ -296,7 +295,6 @@ module ARStateMachine
 
         @after_commit_transitions_to[to_sym_].push({method: method})
       end
-      true
     end
 
     def before_transition_from(from, method=nil, rollback_on_failure=true, &block)
@@ -314,7 +312,6 @@ module ARStateMachine
 
         @before_transitions_from[from_sym].push({method: method, rollback_on_failure: rollback_on_failure})
       end
-      true
     end
 
     def after_transition_from(from, method=nil, &block)
@@ -332,7 +329,6 @@ module ARStateMachine
 
         @after_transitions_from[from_sym].push({method: method}) # AR doesn't do rollbacks for after_* callbacks
       end
-      true
     end
 
     def after_commit_transition_from(from, method=nil, &block)
@@ -350,7 +346,6 @@ module ARStateMachine
 
         @after_commit_transitions_from[from_sym].push({method: method})
       end
-      true
     end
 
     def process_callbacks(to, model, from, callbacks, ignore_response=false)
@@ -383,11 +378,10 @@ module ARStateMachine
             break # just exit THIS chain; not the whole rails callback chain
           else
             # rollback changes / cancel subsequent other callbacks
-            return false
+            throw :abort
           end
         end
       end
-      true
     end
 
     def run_after_commit_transition_callbacks(to, model, from)
