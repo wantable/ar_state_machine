@@ -227,13 +227,13 @@ module ARStateMachine
           end
         end
 
-        self.class.send :define_method, ss do
+        self.scope ss, -> {
           where(state: ss)
-        end
+        }
 
-        self.class.send :define_method, "not_#{ss}" do
+        self.scope "not_#{ss}", -> {
           where.not(state: ss)
-        end
+        }
       end
     end
 
