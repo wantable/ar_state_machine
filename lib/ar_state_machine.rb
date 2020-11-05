@@ -15,7 +15,7 @@ module ARStateMachine
                       if: -> { state_changed? or (skipped_transition and skipped_transition.to_s == state.to_s) }
 
     after_update      :do_state_change_do_after_callbacks,
-                      if: -> { (ActiveRecord::VERSION::MAJOR >= 5 ? saved_change_to_attribute?(:state) : state_changed?) or (skipped_transition and skipped_transition.to_s == state.to_s) }
+                      if: -> { (rails52? ? saved_change_to_attribute?(:state) : state_changed?) or (skipped_transition and skipped_transition.to_s == state.to_s) }
 
     after_commit      :do_state_change_do_after_commit_callbacks
 
@@ -41,10 +41,17 @@ module ARStateMachine
 
   private
 
+  def rails52?
+    return true if ActiveRecord::VERSION::MAJOR > 5
+    return true if ActiveRecord::VERSION::MAJOR == 5 && ActiveRecord::VERSION::MINOR >= 2
+
+    false
+  end
+
   def old_state
     old_state = self.changed_attributes['state']
 
-    if ActiveRecord::VERSION::MAJOR >= 5
+    if rails52?
       old_state = self.saved_changes['state']&.first || self.changed_attributes['state']
     end
 
