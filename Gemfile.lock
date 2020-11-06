@@ -1,30 +1,30 @@
 PATH
   remote: .
   specs:
-    ar_state_machine (0.3.0)
+    ar_state_machine (0.3.2)
       activerecord (>= 5.0)
       timecop
 
 GEM
   remote: https://rubygems.org/
   specs:
-    activemodel (5.2.4.1)
-      activesupport (= 5.2.4.1)
-    activerecord (5.2.4.1)
-      activemodel (= 5.2.4.1)
-      activesupport (= 5.2.4.1)
+    activemodel (5.2.4.4)
+      activesupport (= 5.2.4.4)
+    activerecord (5.2.4.4)
+      activemodel (= 5.2.4.4)
+      activesupport (= 5.2.4.4)
       arel (>= 9.0)
-    activesupport (5.2.4.1)
+    activesupport (5.2.4.4)
       concurrent-ruby (~> 1.0, >= 1.0.2)
       i18n (>= 0.7, < 2)
       minitest (~> 5.1)
       tzinfo (~> 1.1)
     arel (9.0.0)
-    concurrent-ruby (1.1.6)
+    concurrent-ruby (1.1.7)
     diff-lcs (1.2.5)
-    i18n (1.8.2)
+    i18n (1.8.5)
       concurrent-ruby (~> 1.0)
-    minitest (5.14.0)
+    minitest (5.14.2)
     rake (10.5.0)
     rspec (3.4.0)
       rspec-core (~> 3.4.0)
@@ -40,8 +40,8 @@ GEM
       rspec-support (~> 3.4.0)
     rspec-support (3.4.1)
     thread_safe (0.3.6)
-    timecop (0.9.1)
-    tzinfo (1.2.6)
+    timecop (0.9.2)
+    tzinfo (1.2.7)
       thread_safe (~> 0.1)
 
 PLATFORMS
