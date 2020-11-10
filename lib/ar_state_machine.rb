@@ -52,7 +52,13 @@ module ARStateMachine
     old_state = self.changed_attributes['state']
 
     if rails52?
-      old_state = self.saved_changes['state']&.first || self.changed_attributes['state']
+      if self.saved_changes['state'].is_a? Array
+        old_state = self.saved_changes['state']&.last
+      elsif self.saved_changes['state'].is_a? String
+        old_state = self.saved_changes['state']
+      else
+        old_state = self.changed_attributes['state']
+      end
     end
 
     # we usually only want to create the state change if the state actually changes but
