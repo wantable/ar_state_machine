@@ -124,6 +124,8 @@ module ARStateMachine
 
   def state_machine_validation
     return if !self.state.present?
+    return if old_state == self.state
+
     if !self.class.states.keys.include?(self.state.to_sym)
       self.errors[:state] << "#{self.state} is not a valid state."
     elsif self.state_changed? and !allow_transition?(self.class.states, old_state, self.state)
