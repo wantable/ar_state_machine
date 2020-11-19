@@ -4,13 +4,14 @@ class FakeActiveRecordModel
   # test that if invalid the before's are called and the after's aren't
 
   include ActiveModel::Model
+  include ActiveRecord::AttributeMethods::Dirty
   extend ActiveModel::Callbacks
   extend ARStateMachine::ActiveRecordExtensions
 
   attr_accessor :id
 
   # override a few methods because this isn't valid to insert to the state change table - this isn't an AR model
-  def self.has_many(what, options={}); end;
+  def self.has_many(what, options={}); end
 
   define_model_callbacks :update, :initialize, :create, :commit
 
@@ -46,6 +47,5 @@ class FakeActiveRecordModel
   def initialize(attributes={})
     run_callbacks(:initialize) { true }
   end
-
-
 end
+

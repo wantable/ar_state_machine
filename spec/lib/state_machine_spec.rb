@@ -63,7 +63,7 @@ describe "StateMachine" do
     expect(test.third_state_at).to eq(was)
   end
 
-  it "test state machine callbacks" do
+  it "test state machine callbacks", :aggregate_failures do
     test = StateMachineTestClass.create
 
     expect(test.make_second_state).to be true
