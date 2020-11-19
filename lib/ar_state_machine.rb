@@ -15,7 +15,7 @@ module ARStateMachine
                       if: -> { state_changed? or (skipped_transition and skipped_transition.to_s == state.to_s) }
 
     after_update      :do_state_change_do_after_callbacks,
-                      if: -> { (rails52? ? saved_change_to_attribute?(:state) : state_changed?) or (skipped_transition and skipped_transition.to_s == state.to_s) }
+                      if: -> { (rails52? ? saved_change_to_attribute?(:state) || changes.key?('state') : state_changed?) or (skipped_transition and skipped_transition.to_s == state.to_s) }
 
     after_commit      :do_state_change_do_after_commit_callbacks
 
@@ -52,7 +52,13 @@ module ARStateMachine
     old_state = self.changed_attributes['state']
 
     if rails52?
-      old_state = self.saved_changes['state']&.first || self.changed_attributes['state']
+      if self.saved_changes['state'].is_a? Array
+        old_state = self.saved_changes['state']&.last
+      elsif self.saved_changes['state'].is_a? String
+        old_state = self.saved_changes['state']
+      else
+        old_state = self.changed_attributes['state']
+      end
     end
 
     # we usually only want to create the state change if the state actually changes but
@@ -118,6 +124,8 @@ module ARStateMachine
 
   def state_machine_validation
     return if !self.state.present?
+    return if old_state == self.state
+
     if !self.class.states.keys.include?(self.state.to_sym)
       self.errors[:state] << "#{self.state} is not a valid state."
     elsif self.state_changed? and !allow_transition?(self.class.states, old_state, self.state)
@@ -239,13 +247,13 @@ module ARStateMachine
           end
         end
 
-        self.scope ss, -> {
+        self.class.send :define_method, ss do
           where(state: ss)
-        }
+        end
 
-        self.scope "not_#{ss}", -> {
+        self.class.send :define_method, "not_#{ss}" do
           where.not(state: ss)
-        }
+        end
       end
     end
 
@@ -281,13 +289,14 @@ module ARStateMachine
       to.each do |to_|
         to_sym_ = to_.to_sym
         @after_transitions_to[to_sym_] ||= []
+
         if !method.present?
           method = "_after_transition_to_#{to_}_#{@after_transitions_to[to_sym_].length}"
           @all_callbacks.push method
           define_method method, block
         end
 
-        @after_transitions_to[to_.to_sym].push({method: method}) # AR doesn't do rollbacks for after_* callbacks
+        @after_transitions_to[to_.to_sym].push(method: method) # AR doesn't do rollbacks for after_* callbacks
       end
     end
 
@@ -414,4 +423,4 @@ module ARStateMachine
     end
   end
 end
-ActiveRecord::Base.extend(ARStateMachine::ActiveRecordExtensions)
+
