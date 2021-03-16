@@ -11,7 +11,8 @@ module ARStateMachine
     attr_accessor     :last_edited_by_id, :skipped_transition
 
     after_initialize  :state_machine_set_initial_state
-    before_update     :do_state_change_before_callbacks,
+
+    before_update     :do_state_change_do_before_callbacks,
                       if: -> { state_changed? or (skipped_transition and skipped_transition.to_s == state.to_s) }
 
     after_update      :do_state_change_do_after_callbacks,
@@ -42,23 +43,18 @@ module ARStateMachine
   private
 
   def rails52?
-    return true if ActiveRecord::VERSION::MAJOR > 5
-    return true if ActiveRecord::VERSION::MAJOR == 5 && ActiveRecord::VERSION::MINOR >= 2
-
-    false
+    Gem::Version.new(ActiveRecord::VERSION::STRING) >= Gem::Version.new('5.2')
   end
 
   def old_state
-    old_state = self.changed_attributes['state']
-
-    if rails52?
-      if self.saved_changes['state'].is_a? Array
-        old_state = self.saved_changes['state']&.last
-      elsif self.saved_changes['state'].is_a? String
-        old_state = self.saved_changes['state']
-      else
-        old_state = self.changed_attributes['state']
+    old_state = if rails52?
+      case saved_changes['state']
+      when Array then saved_changes['state']&.last
+      when String then saved_changes['state']
+      else changed_attributes['state']
       end
+    else
+      changed_attributes['state']
     end
 
     # we usually only want to create the state change if the state actually changes but
@@ -69,6 +65,33 @@ module ARStateMachine
     old_state ||= skipped_transition if skipped_transition.to_s == state.to_s
 
     old_state
+  end
+
+  def state_machine_set_initial_state
+    self.state ||= self.class.states.first.first
+  end
+
+  def do_state_change_do_before_callbacks
+    self.class.run_before_transition_callbacks(self.state, self, old_state)
+
+    if self.skipped_transition and self.respond_to?("#{self.skipped_transition}_at=")
+      self.send("#{self.skipped_transition}_at=", Time.now)
+    end
+
+    if self.respond_to?("#{self.state}_at=")
+      overwrite = if self.respond_to?("overwrite_#{self.state}_at")
+         # could be nil, want to assume we overwrite if it isn't exactly false
+        !(self.send("overwrite_#{self.state}_at") == false)
+      elsif self.class.respond_to?("overwrite_#{self.state}_at")
+        !(self.class.send("overwrite_#{self.state}_at") == false)
+      else
+        true
+      end
+
+      if (self.send("#{self.state}_at").blank? or overwrite)
+        self.send("#{self.state}_at=", Time.now)
+      end
+    end
   end
 
   def do_state_change_do_after_callbacks
@@ -84,42 +107,21 @@ module ARStateMachine
   end
 
   def do_state_change_do_after_commit_callbacks
+    # we have to use an instance variable because the change was already committed and changed_attributes is empty
     previous_state, new_state = self.class.after_callbacks[id]
-    if previous_state and new_state # we have to use an instance variable because the change was already committed and changed_attributes is empty
+
+    if previous_state and new_state
       self.class.after_callbacks.delete(id)
       self.class.run_after_commit_transition_callbacks(new_state, self, previous_state)
     end
   end
 
   def save_state_change
-    self.state_changes.create({
+    self.state_changes.create(
       previous_state: old_state,
       next_state:     self.state,
       created_by_id:  self.last_edited_by_id || ARStateMachine.configuration.system_id
-    })
-  end
-
-  def do_state_change_before_callbacks
-    self.class.run_before_transition_callbacks(self.state, self, old_state)
-
-    if self.skipped_transition and self.respond_to?("#{self.skipped_transition}_at=")
-      self.send("#{self.skipped_transition}_at=", Time.now)
-    end
-
-    if self.respond_to?("#{self.state}_at=")
-      overwrite = true
-      if self.respond_to?("overwrite_#{self.state}_at")
-         # could be nil, want to assume we overwrite if it isn't exactly false
-        overwrite = !(self.send("overwrite_#{self.state}_at") == false)
-      elsif self.class.respond_to?("overwrite_#{self.state}_at")
-        overwrite = !(self.class.send("overwrite_#{self.state}_at") == false)
-      end
-
-      if (self.send("#{self.state}_at").blank? or overwrite)
-        self.send("#{self.state}_at=", Time.now)
-      end
-    end
-    true
+    )
   end
 
   def state_machine_validation
@@ -127,14 +129,10 @@ module ARStateMachine
     return if old_state == self.state
 
     if !self.class.states.keys.include?(self.state.to_sym)
-      self.errors[:state] << "#{self.state} is not a valid state."
+      errors.add(:state, "#{self.state} is not a valid state.")
     elsif self.state_changed? and !allow_transition?(self.class.states, old_state, self.state)
-      self.errors[:state] << "Cannot transition from #{old_state} to #{self.state}."
+      errors.add(:state, "Cannot transition from #{old_state} to #{self.state}.")
     end
-  end
-
-  def state_machine_set_initial_state
-    self.state ||= self.class.states.first.first
   end
 
   def allow_transition?(states, from, to)
@@ -147,12 +145,14 @@ module ARStateMachine
 
   def set_state_by_id
     if self.respond_to?("#{self.state}_by_id")
-      overwrite = true
-      if self.respond_to?("overwrite_#{self.state}_by_id")
-        overwrite = !(self.send("overwrite_#{self.state}_by_id") == false)
+      overwrite = if self.respond_to?("overwrite_#{self.state}_by_id")
+        !(self.send("overwrite_#{self.state}_by_id") == false)
       elsif self.class.respond_to?("overwrite_#{self.state}_by_id")
-        overwrite = !(self.class.send("overwrite_#{self.state}_by_id") == false)
+        !(self.class.send("overwrite_#{self.state}_by_id") == false)
+      else
+        true
       end
+
       if self.send("#{self.state}_by_id").blank? or overwrite
         self.send("#{self.state}_by_id=", self.last_edited_by_id) if self.last_edited_by_id.present?
       end
@@ -162,12 +162,12 @@ module ARStateMachine
   module ActiveRecordExtensions
     def state_machine(states)
       include ARStateMachine
-      self.setup(states)
+      self.setup_state_machine(states)
     end
   end
 
   module ClassMethods
-    def setup(states)
+    def setup_state_machine(states)
       @before_transitions_to ||= {}
       @after_transitions_to ||= {}
       @after_commit_transitions_to ||= {}
@@ -207,12 +207,15 @@ module ARStateMachine
             raise NotImplementedError, "Must add column #{ss}_at to the #{self.class.name.tableize} to use has_been_made_#{ss}?"
           end
         end
+
         define_method "has_not_been_made_#{ss}?" do
           !self.send("has_been_made_#{ss}?")
         end
+
         define_method "is_#{ss}?" do
           self.state.to_s == ss
         end
+
         define_method "make_#{ss}" do |last_edited_by_override = nil|
           self.state = ss
           self.last_edited_by_id = last_edited_by_override if last_edited_by_override
@@ -221,22 +224,26 @@ module ARStateMachine
           # check that the state actually changed in case AR callback chain/transactions are ignored and it gets reverted
           self.save and (self.send("is_#{ss}?") || self.skipped_transition.to_s == ss)
         end
+
         define_method "is_not_#{ss}?" do
           !self.send("is_#{ss}?")
         end
+
         define_method "make_#{ss}!" do |last_edited_by_override = nil|
           self.last_edited_by_id = last_edited_by_override if last_edited_by_override
           self.state = ss
           self.set_state_by_id
 
           self.save!
+
           if self.send("is_#{ss}?") or self.skipped_transition.to_s == ss
             true
           else
             messages = self.errors.map{|x, y| "#{x}=#{y}"}.join(" | ")
-            raise Exception.new("Cannot transition to #{ss}. #{messages}")
+            raise StandardError.new("Cannot transition to #{ss}. #{messages}")
           end
         end
+
         can_make_function = "can_make_#{ss}?"
         if !respond_to?(can_make_function)
           define_method can_make_function do |user=nil, ability=nil|
@@ -265,133 +272,75 @@ module ARStateMachine
       super(name)
     end
 
-    def before_transition_to(to, method=nil, rollback_on_failure=true, &block)
-      if to.class != Array
-        to = [to]
-      end
-      to.each do |to_|
-        to_sym_ = to_.to_sym
-        @before_transitions_to[to_sym_] ||= []
-        if !method.present?
-          method = "_before_transition_to_#{to_}_#{@before_transitions_to[to_sym_].length}"
+    def append_transitions_callback(states, method_or_block, rollback_on_failure, method_prefix)
+      Array.wrap(states).map(&:to_sym).each do |state|
+        transitions = yield(state)
+
+        if method_or_block.respond_to?(:call)
+          method = "_#{method_prefix}_#{state}_#{transitions.length}"
           @all_callbacks.push method
-          define_method method, block
+          define_method method, method_or_block
+        else
+          method = method_or_block
         end
 
-        @before_transitions_to[to_sym_].push({method: method, rollback_on_failure: rollback_on_failure})
+        transitions.push(method: method, rollback_on_failure: rollback_on_failure)
       end
     end
 
-    def after_transition_to(to, method=nil, &block)
-      if to.class != Array
-        to = [to]
-      end
-      to.each do |to_|
-        to_sym_ = to_.to_sym
-        @after_transitions_to[to_sym_] ||= []
-
-        if !method.present?
-          method = "_after_transition_to_#{to_}_#{@after_transitions_to[to_sym_].length}"
-          @all_callbacks.push method
-          define_method method, block
-        end
-
-        @after_transitions_to[to_.to_sym].push(method: method) # AR doesn't do rollbacks for after_* callbacks
+    def before_transition_to(to, method = nil, rollback_on_failure = true, &block)
+      append_transitions_callback(to, method || block, rollback_on_failure, 'before_transition_to') do |state|
+        @before_transitions_to[state] ||= []
       end
     end
 
-    def after_commit_transition_to(to, method=nil, &block)
-      if to.class != Array
-        to = [to]
-      end
-      to.each do |to_|
-        to_sym_ = to_.to_sym
-        @after_commit_transitions_to[to_sym_] ||= []
-        if !method.present?
-          method = "_after_commit_to_#{to_}_#{@after_commit_transitions_to[to_sym_].length}"
-          @all_callbacks.push method
-          define_method method, block
-        end
-
-        @after_commit_transitions_to[to_sym_].push({method: method})
+    def after_transition_to(to, method = nil, &block)
+      append_transitions_callback(to, method || block, true, 'after_transition_to') do |state|
+        @after_transitions_to[state] ||= []
       end
     end
 
-    def before_transition_from(from, method=nil, rollback_on_failure=true, &block)
-      if from.class != Array
-        from = [from]
-      end
-      from.each do |from_|
-        from_sym = from_.to_sym
-        @before_transitions_from[from_sym] ||= []
-        if !method.present?
-          method = "_before_transition_from_#{from_}_#{@before_transitions_from[from_sym].length}"
-          @all_callbacks.push method
-          define_method method, block
-        end
-
-        @before_transitions_from[from_sym].push({method: method, rollback_on_failure: rollback_on_failure})
+    def after_commit_transition_to(to, method = nil, &block)
+      append_transitions_callback(to, method || block, true, 'after_commit_to') do |state|
+        @after_commit_transitions_to[state] ||= []
       end
     end
 
-    def after_transition_from(from, method=nil, &block)
-      if from.class != Array
-        from = [from]
-      end
-      from.each do |from_|
-        from_sym = from_.to_sym
-        @after_transitions_from[from_sym] ||= []
-        if !method.present?
-          method = "_after_transition_from_#{from_}_#{@after_transitions_from[from_sym].length}"
-          @all_callbacks.push method
-          define_method method, block
-        end
-
-        @after_transitions_from[from_sym].push({method: method}) # AR doesn't do rollbacks for after_* callbacks
+    def before_transition_from(from, method = nil, rollback_on_failure = true, &block)
+      append_transitions_callback(from, method || block, rollback_on_failure, 'before_transition_from') do |state|
+        @before_transitions_from[state] ||= []
       end
     end
 
-    def after_commit_transition_from(from, method=nil, &block)
-      if from.class != Array
-        from = [from]
-      end
-      from.each do |from_|
-        from_sym = from_.to_sym
-        @after_commit_transitions_from[from_sym] ||= []
-        if !method.present?
-          method = "_after_commit_from_#{from_}_#{@after_commit_transitions_from[from_sym].length}"
-          @all_callbacks.push method
-          define_method method, block
-        end
-
-        @after_commit_transitions_from[from_sym].push({method: method})
+    def after_transition_from(from, method = nil, &block)
+      append_transitions_callback(from, method || block, true, 'after_transition_from') do |state|
+        @after_transitions_from[state] ||= []
       end
     end
 
-    def process_callbacks(to, model, from, callbacks, ignore_response=false)
+    def after_commit_transition_from(from, method = nil, &block)
+      append_transitions_callback(from, method || block, true, 'after_commit_from') do |state|
+        @after_commit_transitions_from[state] ||= []
+      end
+    end
+
+    def process_callbacks(to, model, from, callbacks, ignore_result = false)
       # make sure these are all in the right order if there are to and from callbacks
       callbacks.sort_by! do |callback|
         @all_callbacks.index(callback)
       end
 
       callbacks.each do |callback|
-        args = case model.method(callback[:method]).parameters.count
-        when 1
-          [from.to_sym]
-        when 2
-          [from.to_sym, to.to_sym]
-        else
-          []
-        end
+        method_arity = model.method(callback[:method]).parameters.count
+        arguments    = [from.to_sym, to.to_sym].take(method_arity)
+        result       = model.send(callback[:method], *arguments)
 
-        if model.send(callback[:method], *args) == false and !ignore_response
+        if !ignore_result and result == false
           # cancel others if any returned false
 
           if model.state == to # revert the state if AR won't and it hasn't been changed already
             model.state = from
-            if model.respond_to?("#{to}_at=")
-              model.send("#{to}_at=", nil)
-            end
+            model.send("#{to}_at=", nil) if model.respond_to?("#{to}_at=")
           end
 
           if callback[:rollback_on_failure] == false
@@ -405,22 +354,26 @@ module ARStateMachine
     end
 
     def run_after_commit_transition_callbacks(to, model, from)
-      callbacks = @after_commit_transitions_to[to.to_sym]||[]
-      callbacks += @after_commit_transitions_from[from.to_sym]||[]
+      callbacks = Array.wrap(@after_commit_transitions_to[to.to_sym]) +
+                  Array.wrap(@after_commit_transitions_from[from.to_sym])
+
       process_callbacks(to, model, from, callbacks, true) if callbacks.length > 0
     end
 
     def run_before_transition_callbacks(to, model, from)
-      callbacks = @before_transitions_to[to.to_sym]||[]
-      callbacks += @before_transitions_from[from.to_sym]||[]
+      callbacks = Array.wrap(@before_transitions_to[to.to_sym]) +
+                  Array.wrap(@before_transitions_from[from.to_sym])
+
       process_callbacks(to, model, from, callbacks) if callbacks.length > 0
     end
 
     def run_after_transition_callbacks(to, model, from)
-      callbacks = @after_transitions_to[to.to_sym]||[]
-      callbacks += @after_transitions_from[from.to_sym]||[]
+      callbacks = Array.wrap(@after_transitions_to[to.to_sym]) +
+                  Array.wrap(@after_transitions_from[from.to_sym])
+
       process_callbacks(to, model, from, callbacks) if callbacks.length > 0
     end
   end
 end
 
+ActiveRecord::Base.extend(ARStateMachine::ActiveRecordExtensions)
