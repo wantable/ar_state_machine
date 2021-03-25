@@ -13,15 +13,15 @@ module ARStateMachine
     after_initialize  :state_machine_set_initial_state
 
     before_update     :do_state_change_do_before_callbacks,
-                      if: -> { state_changed? or (skipped_transition and skipped_transition.to_s == state.to_s) }
+                      if: -> { state_changed? or skipped_transition_equals_state? }
 
     after_update      :do_state_change_do_after_callbacks,
-                      if: -> { (rails51? ? saved_change_to_attribute?(:state) : state_changed?) or (skipped_transition and skipped_transition.to_s == state.to_s) }
+                      if: -> { state_was_changed? or skipped_transition_equals_state? }
 
     after_commit      :do_state_change_do_after_commit_callbacks
 
     before_update     :save_state_change,
-                      if: -> { ARStateMachine.configuration.should_log_state_change and (state_changed? or (skipped_transition and skipped_transition.to_s == state.to_s)) }
+                      if: -> { ARStateMachine.configuration.should_log_state_change and (state_changed? or skipped_transition_equals_state?) }
 
     validate          :state_machine_validation
 
@@ -46,15 +46,23 @@ module ARStateMachine
     Gem::Version.new(ActiveRecord::VERSION::STRING) >= Gem::Version.new('5.1')
   end
 
-  def old_state
-    old_state = if rails51?
-      case saved_changes['state']
-      when Array then saved_changes['state']&.last
-      when String then saved_changes['state']
-      else changed_attributes['state']
-      end
+  def skipped_transition_equals_state?
+    skipped_transition and skipped_transition.to_s == state.to_s
+  end
+
+  def state_was_changed?
+    if rails51?
+      saved_change_to_attribute?(:state) || will_save_change_to_attribute?(:state)
     else
-      changed_attributes['state']
+      state_changed?
+    end
+  end
+
+  def resolve_old_state(is_saved:)
+    old_state = if rails51?
+      (is_saved ? saved_changes : changes_to_save)[:state]&.first
+    else
+      changed_attributes[:state]
     end
 
     # we usually only want to create the state change if the state actually changes but
@@ -72,7 +80,7 @@ module ARStateMachine
   end
 
   def do_state_change_do_before_callbacks
-    self.class.run_before_transition_callbacks(self.state, self, old_state)
+    self.class.run_before_transition_callbacks(self.state, self, resolve_old_state(is_saved: false))
 
     if self.skipped_transition and self.respond_to?("#{self.skipped_transition}_at=")
       self.send("#{self.skipped_transition}_at=", Time.now)
@@ -102,6 +110,8 @@ module ARStateMachine
     # state change in the transaction not necessarily the one related to the first created
     # instance of a particular model
     # https://github.com/rails/rails/issues/19797
+    old_state = resolve_old_state(is_saved: true)
+
     self.class.after_callbacks[id] = [old_state, state]
     self.class.run_after_transition_callbacks(state, self, old_state)
   end
@@ -118,13 +128,15 @@ module ARStateMachine
 
   def save_state_change
     self.state_changes.create(
-      previous_state: old_state,
+      previous_state: resolve_old_state(is_saved: false),
       next_state:     self.state,
       created_by_id:  self.last_edited_by_id || ARStateMachine.configuration.system_id
     )
   end
 
   def state_machine_validation
+    old_state = resolve_old_state(is_saved: false)
+
     return if !self.state.present?
     return if old_state == self.state
 
