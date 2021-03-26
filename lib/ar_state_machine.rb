@@ -13,15 +13,15 @@ module ARStateMachine
     after_initialize  :state_machine_set_initial_state
 
     before_update     :do_state_change_do_before_callbacks,
-                      if: -> { state_changed? or skipped_transition_equals_state? }
+                      if: -> { will_save_change_to_state? or skipped_transition_equals_state? }
 
     after_update      :do_state_change_do_after_callbacks,
-                      if: -> { state_was_changed? or skipped_transition_equals_state? }
+                      if: -> { saved_change_to_state? or skipped_transition_equals_state? }
 
     after_commit      :do_state_change_do_after_commit_callbacks
 
     before_update     :save_state_change,
-                      if: -> { ARStateMachine.configuration.should_log_state_change and (state_changed? or skipped_transition_equals_state?) }
+                      if: -> { ARStateMachine.configuration.should_log_state_change and (will_save_change_to_state? or skipped_transition_equals_state?) }
 
     validate          :state_machine_validation
 
@@ -50,7 +50,11 @@ module ARStateMachine
     skipped_transition and skipped_transition.to_s == state.to_s
   end
 
-  def state_was_changed?
+  def will_save_change_to_state?
+    rails51? ? will_save_change_to_attribute?(:state) : state_changed?
+  end
+
+  def saved_change_to_state?
     if rails51?
       saved_change_to_attribute?(:state) || will_save_change_to_attribute?(:state)
     else
@@ -142,7 +146,7 @@ module ARStateMachine
 
     if !self.class.states.keys.include?(self.state.to_sym)
       errors.add(:state, "#{self.state} is not a valid state.")
-    elsif self.state_changed? and !allow_transition?(self.class.states, old_state, self.state)
+    elsif will_save_change_to_state? and !allow_transition?(self.class.states, old_state, self.state)
       errors.add(:state, "Cannot transition from #{old_state} to #{self.state}.")
     end
   end

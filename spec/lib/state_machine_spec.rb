@@ -200,14 +200,14 @@ class StateMachineTestClass < FakeActiveRecordModel
     @initial_state = self.states.first.first.to_s
   end
 
-  def state_changed?
+  def will_save_change_to_state?
     self.state != @initial_state
   end
 
-  alias_method :state_was_changed?, :state_changed?
+  alias_method :saved_change_to_state?, :will_save_change_to_state?
 
   def changes_to_save
-    if state_changed?
+    if will_save_change_to_state?
       { state: [@initial_state, state] }
     else
       {}
