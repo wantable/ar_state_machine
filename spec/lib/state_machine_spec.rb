@@ -219,19 +219,24 @@ class StateMachineTestClass < FakeActiveRecordModel
   def save_state_change; end;
 
   ## HERE begins the actual state machine implementation
-  self.state_machine({
+  include ARStateMachine
+
+  state_machine(
     first_state: [:second_state, :third_state],
     second_state: :third_state,
     third_state: :fourth_state,
     fourth_state: [],
     fifth_state: []
-  })
+  )
+
   before_transition_to(:second_state) do |from, to|
     self.append_callback_happened(to.to_sym, from.to_sym, :before)
   end
+
   before_transition_to([:second_state]) do |from, to|
     self.append_callback_happened(to.to_sym, from.to_sym, :before)
   end
+
   after_transition_to :second_state, :another_second_state_callback
 
   before_transition_from(:second_state) do |from, to|
