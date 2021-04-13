@@ -3,10 +3,9 @@ class FakeActiveRecordModel
   # this isn't a perfect way to test because I can't seperate the callbacks and
   # test that if invalid the before's are called and the after's aren't
 
+  extend ActiveModel::Callbacks
   include ActiveModel::Model
   include ActiveRecord::AttributeMethods::Dirty
-  extend ActiveModel::Callbacks
-  extend ARStateMachine::ActiveRecordExtensions
 
   attr_accessor :id
 
@@ -48,4 +47,3 @@ class FakeActiveRecordModel
     run_callbacks(:initialize) { true }
   end
 end
-

@@ -175,15 +175,8 @@ module ARStateMachine
     end
   end
 
-  module ActiveRecordExtensions
-    def state_machine(states)
-      include ARStateMachine
-      self.setup_state_machine(states)
-    end
-  end
-
   module ClassMethods
-    def setup_state_machine(states)
+    def state_machine(states)
       @before_transitions_to ||= {}
       @after_transitions_to ||= {}
       @after_commit_transitions_to ||= {}
@@ -284,12 +277,12 @@ module ARStateMachine
     # instead of having string everywhere
     def const_missing(name)
       state_name = name.downcase
-      return const_set(name, state_name.to_sym) if self.states.keys.include?(state_name)
+      return const_set(name, state_name.to_sym) if states && states.keys.include?(state_name)
       super(name)
     end
 
     def append_transitions_callback(states, method_or_block, rollback_on_failure, method_prefix)
-      Array.wrap(states).map(&:to_sym).each do |state|
+      Array(states).map(&:to_sym).each do |state|
         transitions = yield(state)
 
         if method_or_block.respond_to?(:call)
@@ -370,26 +363,24 @@ module ARStateMachine
     end
 
     def run_after_commit_transition_callbacks(to, model, from)
-      callbacks = Array.wrap(@after_commit_transitions_to[to.to_sym]) +
-                  Array.wrap(@after_commit_transitions_from[from.to_sym])
+      callbacks = Array(@after_commit_transitions_to[to.to_sym]) +
+                  Array(@after_commit_transitions_from[from.to_sym])
 
       process_callbacks(to, model, from, callbacks, true) if callbacks.length > 0
     end
 
     def run_before_transition_callbacks(to, model, from)
-      callbacks = Array.wrap(@before_transitions_to[to.to_sym]) +
-                  Array.wrap(@before_transitions_from[from.to_sym])
+      callbacks = Array(@before_transitions_to[to.to_sym]) +
+                  Array(@before_transitions_from[from.to_sym])
 
       process_callbacks(to, model, from, callbacks) if callbacks.length > 0
     end
 
     def run_after_transition_callbacks(to, model, from)
-      callbacks = Array.wrap(@after_transitions_to[to.to_sym]) +
-                  Array.wrap(@after_transitions_from[from.to_sym])
+      callbacks = Array(@after_transitions_to[to.to_sym]) +
+                  Array(@after_transitions_from[from.to_sym])
 
       process_callbacks(to, model, from, callbacks) if callbacks.length > 0
     end
   end
 end
-
-ActiveRecord::Base.extend(ARStateMachine::ActiveRecordExtensions)
