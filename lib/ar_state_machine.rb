@@ -263,11 +263,11 @@ module ARStateMachine
           end
         end
 
-        self.class.send :define_method, ss do
+        define_method ss do
           where(state: ss)
         end
 
-        self.class.send :define_method, "not_#{ss}" do
+        define_method "not_#{ss}" do
           where.not(state: ss)
         end
       end
