@@ -263,12 +263,12 @@ module ARStateMachine
           end
         end
 
-        define_method ss do
+        define_singleton_method(ss) do
           where(state: ss)
         end
 
-        define_method "not_#{ss}" do
-          where.not(state: ss)
+        define_singleton_method("not_#{ss}") do
+          where(state: ss)
         end
       end
     end
