@@ -268,7 +268,7 @@ module ARStateMachine
         end
 
         define_singleton_method("not_#{ss}") do
-          where(state: ss)
+          where.not(state: ss)
         end
       end
     end
