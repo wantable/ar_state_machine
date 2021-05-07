@@ -253,7 +253,7 @@ class StateMachineTestClass < FakeActiveRecordModel
 
   before_transition_to(:fourth_state) do |from, to|
     self.append_callback_happened(to.to_sym, from.to_sym, :before)
-    self.errors[:state] << "Cannot transition to fourth_state because I said so."
+    self.errors.add(:state, "Cannot transition to fourth_state because I said so.")
     false
   end
 
