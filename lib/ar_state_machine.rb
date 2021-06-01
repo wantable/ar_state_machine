@@ -264,13 +264,8 @@ module ARStateMachine
           end
         end
 
-        define_singleton_method(ss) do
-          where(state: ss)
-        end
-
-        define_singleton_method("not_#{ss}") do
-          where.not(state: ss)
-        end
+        scope ss,          -> { where(state: ss) }
+        scope "not_#{ss}", -> { where.not(state: ss) }
       end
     end
 
