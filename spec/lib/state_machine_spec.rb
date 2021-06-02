@@ -172,6 +172,15 @@ end
 class StateMachineTestClass < FakeActiveRecordModel
   attr_accessor :state, :second_state_at, :third_state_at, :fourth_state_at, :second_state_by_id, :overwrite_second_state_at, :overwrite_second_state_by_id
 
+  def self.scope(_name, _block)
+    nil
+  end
+
+  def initialize(attributes)
+    super
+    @initial_state = self.states.first.first.to_s
+  end
+
   def save
     super
     if valid?
@@ -191,15 +200,6 @@ class StateMachineTestClass < FakeActiveRecordModel
     end
   end
 
-  def reset
-    @initial_state = self.state
-  end
-
-  def initialize(attributes)
-    super
-    @initial_state = self.states.first.first.to_s
-  end
-
   def will_save_change_to_state?
     self.state != @initial_state
   end
@@ -216,7 +216,13 @@ class StateMachineTestClass < FakeActiveRecordModel
 
   alias_method :saved_changes, :changes_to_save
 
-  def save_state_change; end;
+  def reset
+    @initial_state = self.state
+  end
+
+  def save_state_change
+    nil
+  end
 
   ## HERE begins the actual state machine implementation
   include ARStateMachine
@@ -253,7 +259,7 @@ class StateMachineTestClass < FakeActiveRecordModel
 
   before_transition_to(:fourth_state) do |from, to|
     self.append_callback_happened(to.to_sym, from.to_sym, :before)
-    self.errors[:state] << "Cannot transition to fourth_state because I said so."
+    self.errors.add(:state, "Cannot transition to fourth_state because I said so.")
     false
   end
 
