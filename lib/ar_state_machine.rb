@@ -248,7 +248,8 @@ module ARStateMachine
           if self.send("is_#{ss}?") or self.skipped_transition.to_s == ss
             true
           else
-            messages = self.errors.map{|x, y| "#{x}=#{y}"}.join(" | ")
+            messages = self.errors.map { |error| "#{error.attribute}=#{error.message}"}.join(" | ")
+
             raise StandardError.new("Cannot transition to #{ss}. #{messages}")
           end
         end
@@ -263,13 +264,8 @@ module ARStateMachine
           end
         end
 
-        define_singleton_method(ss) do
-          where(state: ss)
-        end
-
-        define_singleton_method("not_#{ss}") do
-          where.not(state: ss)
-        end
+        scope ss,          -> { where(state: ss) }
+        scope "not_#{ss}", -> { where.not(state: ss) }
       end
     end
 
