@@ -13,15 +13,15 @@ module ARStateMachine
     after_initialize  :state_machine_set_initial_state
 
     before_update     :do_state_change_do_before_callbacks,
-                      if: -> { will_save_change_to_state? or skipped_transition_equals_state? }
+                      if: -> { will_save_change_to_state? || skipped_transition_equals_state? }
 
     after_update      :do_state_change_do_after_callbacks,
-                      if: -> { saved_change_to_state? or skipped_transition_equals_state? }
+                      if: -> { saved_change_to_state? || skipped_transition_equals_state? }
 
     after_commit      :do_state_change_do_after_commit_callbacks
 
     before_update     :save_state_change,
-                      if: -> { ARStateMachine.configuration.should_log_state_change and (will_save_change_to_state? or skipped_transition_equals_state?) }
+                      if: -> { ARStateMachine.configuration.should_log_state_change && (will_save_change_to_state? || skipped_transition_equals_state?) }
 
     validate          :state_machine_validation
 
@@ -47,7 +47,7 @@ module ARStateMachine
   end
 
   def skipped_transition_equals_state?
-    skipped_transition and skipped_transition.to_s == state.to_s
+    skipped_transition && skipped_transition.to_s == state.to_s
   end
 
   def will_save_change_to_state?
@@ -86,7 +86,7 @@ module ARStateMachine
   def do_state_change_do_before_callbacks
     self.class.run_before_transition_callbacks(self.state, self, resolve_old_state(is_saved: false))
 
-    if self.skipped_transition and self.respond_to?("#{self.skipped_transition}_at=")
+    if self.skipped_transition && self.respond_to?("#{self.skipped_transition}_at=")
       self.send("#{self.skipped_transition}_at=", Time.now)
     end
 
@@ -100,7 +100,7 @@ module ARStateMachine
         true
       end
 
-      if (self.send("#{self.state}_at").blank? or overwrite)
+      if (self.send("#{self.state}_at").blank? || overwrite)
         self.send("#{self.state}_at=", Time.now)
       end
     end
@@ -124,7 +124,7 @@ module ARStateMachine
     # we have to use an instance variable because the change was already committed and changed_attributes is empty
     previous_state, new_state = self.class.after_callbacks[id]
 
-    if previous_state and new_state
+    if previous_state && new_state
       self.class.after_callbacks.delete(id)
       self.class.run_after_commit_transition_callbacks(new_state, self, previous_state)
     end
@@ -146,14 +146,14 @@ module ARStateMachine
 
     if !self.class.states.keys.include?(self.state.to_sym)
       errors.add(:state, "#{self.state} is not a valid state.")
-    elsif will_save_change_to_state? and !allow_transition?(self.class.states, old_state, self.state)
+    elsif will_save_change_to_state? && !allow_transition?(self.class.states, old_state, self.state)
       errors.add(:state, "Cannot transition from #{old_state} to #{self.state}.")
     end
   end
 
   def allow_transition?(states, from, to)
     first_state = self.class.states.first.first
-    return (to.to_sym == first_state or self.skipped_transition.try(:to_sym) == first_state) if from.blank? # happens on new
+    return (to.to_sym == first_state || self.skipped_transition.try(:to_sym) == first_state) if from.blank? # happens on new
     states[from.to_sym].include?(to.to_sym)
   end
 
@@ -169,7 +169,7 @@ module ARStateMachine
         true
       end
 
-      if self.send("#{self.state}_by_id").blank? or overwrite
+      if self.send("#{self.state}_by_id").blank? || overwrite
         self.send("#{self.state}_by_id=", self.last_edited_by_id) if self.last_edited_by_id.present?
       end
     end
@@ -231,7 +231,7 @@ module ARStateMachine
           self.set_state_by_id
 
           # check that the state actually changed in case AR callback chain/transactions are ignored and it gets reverted
-          self.save and (self.send("is_#{ss}?") || self.skipped_transition.to_s == ss)
+          self.save && (self.send("is_#{ss}?") || self.skipped_transition.to_s == ss)
         end
 
         define_method "is_not_#{ss}?" do
@@ -245,7 +245,7 @@ module ARStateMachine
 
           self.save!
 
-          if self.send("is_#{ss}?") or self.skipped_transition.to_s == ss
+          if self.send("is_#{ss}?") || self.skipped_transition.to_s == ss
             true
           else
             messages = self.errors.map { |error| "#{error.attribute}=#{error.message}"}.join(" | ")
@@ -257,10 +257,10 @@ module ARStateMachine
         can_make_function = "can_make_#{ss}?"
         if !respond_to?(can_make_function)
           define_method can_make_function do |user=nil, ability=nil|
-            if user and ability.blank?
+            if user && ability.blank?
               ability = Ability.new(user)
             end
-            allow_transition?(self.class.states, self.state, ss) and (ability.blank? or ability.can?(:change_state, self))
+            allow_transition?(self.class.states, self.state, ss) && (ability.blank? || ability.can?(:change_state, self))
           end
         end
 
@@ -340,7 +340,7 @@ module ARStateMachine
         arguments    = [from.to_sym, to.to_sym].take(method_arity)
         result       = model.send(callback[:method], *arguments)
 
-        if !ignore_result and result == false
+        if !ignore_result && result == false
           # cancel others if any returned false
 
           if model.state == to # revert the state if AR won't and it hasn't been changed already
