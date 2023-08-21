@@ -293,7 +293,7 @@ module ARStateMachine
       end
     end
 
-    def before_transition_to(to, method = nil, rollback_on_failure = true, &block)
+    def before_transition_to(to, method = nil, rollback_on_failure: true, &block)
       append_transitions_callback(to, method || block, rollback_on_failure, 'before_transition_to') do |state|
         @before_transitions_to[state] ||= []
       end
@@ -311,7 +311,7 @@ module ARStateMachine
       end
     end
 
-    def before_transition_from(from, method = nil, rollback_on_failure = true, &block)
+    def before_transition_from(from, method = nil, rollback_on_failure: true, &block)
       append_transitions_callback(from, method || block, rollback_on_failure, 'before_transition_from') do |state|
         @before_transitions_from[state] ||= []
       end
@@ -329,7 +329,7 @@ module ARStateMachine
       end
     end
 
-    def process_callbacks(to, model, from, callbacks, ignore_result = false)
+    def process_callbacks(to, model, from, callbacks, ignore_result: false, raise_not_throw: false)
       # make sure these are all in the right order if there are to and from callbacks
       callbacks.sort_by! do |callback|
         @all_callbacks.index(callback)
@@ -352,7 +352,13 @@ module ARStateMachine
             break # just exit THIS chain; not the whole rails callback chain
           else
             # rollback changes / cancel subsequent other callbacks
-            throw :abort
+            if raise_not_throw
+              # after save callback chain is halted like this
+              # https://github.com/rails/rails/issues/33192
+              raise ActiveRecord::RecordInvalid, self
+            else
+              throw :abort
+            end
           end
         end
       end
@@ -362,7 +368,7 @@ module ARStateMachine
       callbacks = Array(@after_commit_transitions_to[to.to_sym]) +
                   Array(@after_commit_transitions_from[from.to_sym])
 
-      process_callbacks(to, model, from, callbacks, true) if callbacks.length > 0
+      process_callbacks(to, model, from, callbacks, ignore_result: true) if callbacks.length > 0
     end
 
     def run_before_transition_callbacks(to, model, from)
@@ -376,7 +382,7 @@ module ARStateMachine
       callbacks = Array(@after_transitions_to[to.to_sym]) +
                   Array(@after_transitions_from[from.to_sym])
 
-      process_callbacks(to, model, from, callbacks) if callbacks.length > 0
+      process_callbacks(to, model, from, callbacks, raise_not_throw: true) if callbacks.length > 0
     end
   end
 end
