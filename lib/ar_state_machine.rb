@@ -299,8 +299,8 @@ module ARStateMachine
       end
     end
 
-    def after_transition_to(to, method = nil, &block)
-      append_transitions_callback(to, method || block, true, 'after_transition_to') do |state|
+    def after_transition_to(to, method = nil, rollback_on_failure: true, &block)
+      append_transitions_callback(to, method || block, rollback_on_failure, 'after_transition_to') do |state|
         @after_transitions_to[state] ||= []
       end
     end
@@ -317,8 +317,8 @@ module ARStateMachine
       end
     end
 
-    def after_transition_from(from, method = nil, &block)
-      append_transitions_callback(from, method || block, true, 'after_transition_from') do |state|
+    def after_transition_from(from, method = nil, rollback_on_failure: true, &block)
+      append_transitions_callback(from, method || block, rollback_on_failure, 'after_transition_from') do |state|
         @after_transitions_from[state] ||= []
       end
     end
@@ -355,7 +355,7 @@ module ARStateMachine
             if raise_not_throw
               # after save callback chain is halted like this
               # https://github.com/rails/rails/issues/33192
-              raise ActiveRecord::RecordInvalid, self
+              raise ActiveRecord::RecordInvalid, model
             else
               throw :abort
             end
