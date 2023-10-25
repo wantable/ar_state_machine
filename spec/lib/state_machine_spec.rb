@@ -150,12 +150,24 @@ describe "StateMachine" do
     expect(test.make_second_state(2)).to be true
 
     was = test.second_state_by_id
+    expect(was).to eq(2)
     test.overwrite_second_state_by_id = false
 
     test.state = StateMachineTestClass::FIRST_STATE
     expect(test.reset).to eq(StateMachineTestClass::FIRST_STATE)
     expect(test.make_second_state(5)).to be true
     expect(test.second_state_by_id).to eq(was)
+  end
+
+  it "calling update instead of make_state still saves by_id" do
+    test = StateMachineTestClass.create
+    expect(test.second_state_by_id).to be_nil
+
+    test.last_edited_by_id = 2
+    test.state = StateMachineTestClass::SECOND_STATE
+    expect(test.save).to be true
+
+    expect(2).to eq(test.second_state_by_id)
   end
 
   it "test setting value before hand then changing states perserves id" do

@@ -12,6 +12,9 @@ module ARStateMachine
 
     after_initialize  :state_machine_set_initial_state
 
+    before_update     :set_state_by_id,
+                      if: -> { will_save_change_to_state? || skipped_transition_equals_state? }
+
     before_update     :do_state_change_do_before_callbacks,
                       if: -> { will_save_change_to_state? || skipped_transition_equals_state? }
 
@@ -226,9 +229,8 @@ module ARStateMachine
         end
 
         define_method "make_#{ss}" do |last_edited_by_override = nil|
-          self.state = ss
           self.last_edited_by_id = last_edited_by_override if last_edited_by_override
-          self.set_state_by_id
+          self.state = ss
 
           # check that the state actually changed in case AR callback chain/transactions are ignored and it gets reverted
           self.save && (self.send("is_#{ss}?") || self.skipped_transition.to_s == ss)
@@ -241,8 +243,6 @@ module ARStateMachine
         define_method "make_#{ss}!" do |last_edited_by_override = nil|
           self.last_edited_by_id = last_edited_by_override if last_edited_by_override
           self.state = ss
-          self.set_state_by_id
-
           self.save!
 
           if self.send("is_#{ss}?") || self.skipped_transition.to_s == ss
