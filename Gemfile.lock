@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    ar_state_machine (0.3.8)
+    ar_state_machine (0.3.9)
       activerecord (>= 5.2)
       timecop
 
