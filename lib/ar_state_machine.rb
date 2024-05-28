@@ -92,7 +92,7 @@ module ARStateMachine
     if self.skipped_transition &&
        self.respond_to?("#{self.skipped_transition}_at=") &&
        (
-         self.respond_to?("#{self.skipped_transition}_at").blank? ||
+         self.send("#{self.skipped_transition}_at").blank? ||
          should_overwrite_timestamp?(self.skipped_transition)
        )
       self.send("#{self.skipped_transition}_at=", Time.now)
