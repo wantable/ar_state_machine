@@ -96,9 +96,7 @@ module ARStateMachine
     end
 
     if self.respond_to?("#{self.state}_at=")
-      overwrite = should_overwrite_timestamp?(self.state)
-
-      if (self.send("#{self.state}_at").blank? || overwrite)
+      if (self.send("#{self.state}_at").blank? || should_overwrite_timestamp?(self.state))
         self.send("#{self.state}_at=", Time.now)
       end
     end
