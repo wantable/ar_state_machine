@@ -89,19 +89,14 @@ module ARStateMachine
   def do_state_change_do_before_callbacks
     self.class.run_before_transition_callbacks(self.state, self, resolve_old_state(is_saved: false))
 
-    if self.skipped_transition && self.respond_to?("#{self.skipped_transition}_at=")
+    if self.skipped_transition &&
+       self.respond_to?("#{self.skipped_transition}_at=") &&
+       should_overwrite_timestamp?(self.skipped_transition)
       self.send("#{self.skipped_transition}_at=", Time.now)
     end
 
     if self.respond_to?("#{self.state}_at=")
-      overwrite = if self.respond_to?("overwrite_#{self.state}_at")
-         # could be nil, want to assume we overwrite if it isn't exactly false
-        !(self.send("overwrite_#{self.state}_at") == false)
-      elsif self.class.respond_to?("overwrite_#{self.state}_at")
-        !(self.class.send("overwrite_#{self.state}_at") == false)
-      else
-        true
-      end
+      overwrite = should_overwrite_timestamp?(self.state)
 
       if (self.send("#{self.state}_at").blank? || overwrite)
         self.send("#{self.state}_at=", Time.now)
@@ -161,6 +156,17 @@ module ARStateMachine
   end
 
   protected
+
+  def should_overwrite_timestamp?(to_state)
+    if self.respond_to?("overwrite_#{to_state}_at")
+       # could be nil, want to assume we overwrite if it isn't exactly false
+      !(self.send("overwrite_#{to_state}_at") == false)
+    elsif self.class.respond_to?("overwrite_#{to_state}_at")
+      !(self.class.send("overwrite_#{to_state}_at") == false)
+    else
+      true
+    end
+  end
 
   def set_state_by_id
     if self.respond_to?("#{self.state}_by_id")

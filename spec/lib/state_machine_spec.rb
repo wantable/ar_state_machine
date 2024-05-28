@@ -143,6 +143,29 @@ describe "StateMachine" do
     expect(test.second_state_at).to eq(was)
   end
 
+  it "test overwriting timestamps with skipped_transitions" do
+    test = StateMachineTestClass.create
+    expect(test.second_state_at).to be_nil
+    expect(test.make_second_state).to be true
+    expect(test.second_state_at).not_to eq(nil)
+
+    was = test.second_state_at
+    Timecop.travel(Time.now + 2)
+
+    test.state = StateMachineTestClass::FIRST_STATE
+    expect(test.reset).to eq(StateMachineTestClass::FIRST_STATE)
+    expect(test.make_second_state).to be true
+    expect(test.second_state_at).not_to eq(was)
+
+    was = test.second_state_at
+    test.overwrite_second_state_at = false
+
+    Timecop.travel(Time.now + 2)
+    test.skipped_transition = StateMachineTestClass::SECOND_STATE
+    expect(test.make_third_state).to be true
+    expect(test.second_state_at).to eq(was)
+  end
+
   it "test overwriting ids" do
     test = StateMachineTestClass.create
     expect(test.second_state_by_id).to be_nil
