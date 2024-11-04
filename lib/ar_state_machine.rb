@@ -23,16 +23,19 @@ module ARStateMachine
 
     after_commit      :do_state_change_do_after_commit_callbacks
 
-    before_update     :save_state_change,
-                      if: -> { ARStateMachine.configuration.should_log_state_change && (will_save_change_to_state? || skipped_transition_equals_state?) }
-
     validate          :state_machine_validation
 
     validates         :state,
                       presence: true
 
-    has_many          :state_changes, as: :source,
-                      dependent: :delete_all
+
+    if ARStateMachine.configuration.should_log_state_change
+      has_many          :state_changes, as: :source,
+                        dependent: :delete_all
+
+      before_update     :save_state_change,
+                        if: -> { will_save_change_to_state? || skipped_transition_equals_state? }
+    end
   end
 
   def self.configuration
