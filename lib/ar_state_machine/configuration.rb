@@ -5,7 +5,6 @@ module ARStateMachine
 
     def initialize
       self.should_log_state_change = true
-      self.system_id = 1
     end
   end
 end
